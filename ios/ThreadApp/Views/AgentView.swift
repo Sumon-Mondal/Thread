@@ -154,6 +154,7 @@ public struct AgentView: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 14)
                     }
+                    .scrollDismissesKeyboard(.interactively)
                     .onChange(of: messages.count) { _ in
                         if let last = messages.last {
                             withAnimation {
@@ -913,39 +914,48 @@ public struct AgentView: View {
 
     // MARK: - Input Bar
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            Button(action: { isDocumentPickerPresented = true }) {
-                Image(systemName: "paperclip")
-                    .font(.system(size: 18))
-                    .foregroundColor(.secondary)
-            }
+        VStack(spacing: 4) {
+            Capsule()
+                .fill(Color.white.opacity(0.18))
+                .frame(width: 32, height: 3.5)
+                .padding(.top, 4)
 
-            // Dictation Button
-            Button(action: toggleDictation) {
-                Image(systemName: isDictating ? "mic.fill" : "mic")
-                    .font(.system(size: 18))
-                    .foregroundColor(isDictating ? .red : .secondary)
-            }
-
-            TextField("e.g. 'Email Sarah', 'add deadline', or 'just send it'…", text: $inputText)
-                .font(.system(size: 13))
-                .padding(10)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(10)
-                .foregroundColor(.white)
-                .onSubmit {
-                    sendMessage()
+            HStack(spacing: 8) {
+                Button(action: { isDocumentPickerPresented = true }) {
+                    Image(systemName: "paperclip")
+                        .font(.system(size: 18))
+                        .foregroundColor(.secondary)
                 }
 
-            Button(action: sendMessage) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 26))
-                    .foregroundColor(inputText.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : .blue)
+                // Dictation Button
+                Button(action: toggleDictation) {
+                    Image(systemName: isDictating ? "mic.fill" : "mic")
+                        .font(.system(size: 18))
+                        .foregroundColor(isDictating ? .red : .secondary)
+                }
+
+                TextField("e.g. 'Email Sarah', 'add deadline', or 'just send it'…", text: $inputText)
+                    .font(.system(size: 13))
+                    .padding(10)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(10)
+                    .foregroundColor(.white)
+                    .onSubmit {
+                        sendMessage()
+                    }
+
+                Button(action: sendMessage) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundColor(inputText.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : .blue)
+                }
+                .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            .disabled(inputText.trimmingCharacters(in: .whitespaces).isEmpty)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
         }
-        .padding(12)
         .background(Color(red: 0.07, green: 0.10, blue: 0.14))
+        .pushDownToDismissKeyboard()
     }
 
     // MARK: - Voice Dictation

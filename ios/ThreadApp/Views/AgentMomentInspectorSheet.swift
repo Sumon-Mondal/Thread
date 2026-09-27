@@ -471,6 +471,7 @@ public struct AgentMomentInspectorSheet: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Color(red: 0.07, green: 0.08, blue: 0.11))
+        .pushDownToDismissKeyboard()
     }
 
     private func submitCurrentInput() {

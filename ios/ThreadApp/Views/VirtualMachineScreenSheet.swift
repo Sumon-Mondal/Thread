@@ -543,6 +543,7 @@ public struct VirtualMachineScreenSheet: View {
                 .disabled(chatMessage.isEmpty)
             }
         }
+        .pushDownToDismissKeyboard()
     }
 
     // MARK: - VM Telemetry Section

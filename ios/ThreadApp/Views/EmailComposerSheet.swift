@@ -91,6 +91,7 @@ public struct EmailComposerSheet: View {
                         }
                         .cornerRadius(12)
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                        .pushDownToDismissKeyboard()
 
                         // Body Editor Container
                         VStack(alignment: .leading, spacing: 8) {
@@ -99,21 +100,34 @@ public struct EmailComposerSheet: View {
                                     .font(.system(size: 12, weight: .bold))
                                     .foregroundColor(.white.opacity(0.8))
                                 Spacer()
-                                Text("Editable text")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.4))
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.compact.down")
+                                        .font(.system(size: 11, weight: .bold))
+                                    Text("Push down to hide keyboard")
+                                        .font(.system(size: 10, weight: .medium))
+                                }
+                                .foregroundColor(.cyan.opacity(0.7))
                             }
 
-                            TextEditor(text: $bodyText)
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundColor(.white)
-                                .scrollContentBackground(.hidden)
-                                .background(Color.black.opacity(0.35))
-                                .frame(minHeight: 180)
-                                .padding(10)
-                                .background(Color.white.opacity(0.03))
-                                .cornerRadius(10)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                            VStack(spacing: 4) {
+                                Capsule()
+                                    .fill(Color.white.opacity(0.2))
+                                    .frame(width: 32, height: 4)
+                                    .padding(.top, 6)
+
+                                TextEditor(text: $bodyText)
+                                    .font(.system(size: 13, weight: .regular))
+                                    .foregroundColor(.white)
+                                    .scrollContentBackground(.hidden)
+                                    .background(Color.black.opacity(0.35))
+                                    .frame(minHeight: 180)
+                                    .padding(.horizontal, 10)
+                                    .padding(.bottom, 8)
+                            }
+                            .background(Color.white.opacity(0.03))
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                            .pushDownToDismissKeyboard()
                         }
 
                         // Attachments Preview
@@ -212,6 +226,7 @@ public struct EmailComposerSheet: View {
                     }
                     .padding(16)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationBarTitle("Edit Email Draft", displayMode: .inline)
             .toolbar {

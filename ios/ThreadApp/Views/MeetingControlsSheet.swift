@@ -328,6 +328,7 @@ public struct MeetingControlsSheet: View {
                 }
                 .disabled(!canSend)
             }
+            .pushDownToDismissKeyboard()
         }
     }
 

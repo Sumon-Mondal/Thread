@@ -127,3 +127,50 @@ public struct MomentTag: View {
         }
     }
 }
+
+// MARK: - Push Down to Dismiss Keyboard Gesture
+public struct PushDownDismissKeyboardModifier: ViewModifier {
+    public var onDismiss: (() -> Void)? = nil
+    @State private var dragOffsetY: CGFloat = 0
+    @State private var hasTriggeredDismiss: Bool = false
+
+    public init(onDismiss: (() -> Void)? = nil) {
+        self.onDismiss = onDismiss
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .offset(y: dragOffsetY)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 8, coordinateSpace: .local)
+                    .onChanged { value in
+                        guard value.translation.height > 0 else { return }
+                        dragOffsetY = value.translation.height * 0.65
+                        if value.translation.height > 24 && !hasTriggeredDismiss {
+                            hasTriggeredDismiss = true
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            onDismiss?()
+                        }
+                    }
+                    .onEnded { value in
+                        if !hasTriggeredDismiss && (value.translation.height > 18 || value.predictedEndTranslation.height > 36) {
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            onDismiss?()
+                        }
+                        hasTriggeredDismiss = false
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            dragOffsetY = 0
+                        }
+                    }
+            )
+    }
+}
+
+public extension View {
+    /// Enables physically pushing down a text box/input container to slide it down and dismiss the virtual keyboard.
+    func pushDownToDismissKeyboard(onDismiss: (() -> Void)? = nil) -> some View {
+        self.modifier(PushDownDismissKeyboardModifier(onDismiss: onDismiss))
+    }
+}

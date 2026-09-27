@@ -355,7 +355,7 @@ export function CalendarPanel({ onOpenConnectModal }: { onOpenConnectModal?: () 
                       <Video className="size-3" /> Join on {e.platform}
                     </a>
                     <button
-                      onClick={() => void handleJoinOnBehalf(e.joinUrl, e.title)}
+                      onClick={() => void handleJoinOnBehalf(e.joinUrl!, e.title)}
                       className="flex items-center gap-1 rounded-full border border-cyan-500/40 bg-cyan-500/15 px-2.5 py-1.5 text-xs font-bold text-cyan-400 hover:bg-cyan-500/25 transition"
                       title="Dispatch VM Bot to join on your behalf"
                     >

@@ -44,12 +44,13 @@ export function DynamicIsland() {
     return null;
   }
 
+  const isLive = playing || mode === "live";
   const lastLine = transcript && transcript.length > 0 ? transcript[transcript.length - 1] : null;
   const gistText = moment
     ? moment.takeaway
     : lastLine
       ? lastLine.text
-      : live
+      : isLive
         ? "AI listening to meeting conversation..."
         : "Meeting standby";
 
@@ -60,24 +61,26 @@ export function DynamicIsland() {
     <div className="pointer-events-none fixed left-1/2 top-[4.5rem] z-50 -translate-x-1/2">
       <div
         className={cn(
-          "pointer-events-auto overflow-hidden rounded-full border border-white/10 bg-black/90 shadow-2xl shadow-black/80 backdrop-blur-xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
-          expanded ? "w-[420px] rounded-3xl" : "w-auto max-w-[90vw]",
+          "pointer-events-auto overflow-hidden border bg-[#05070a]/95 shadow-[0_12px_45px_rgba(0,0,0,0.85)] backdrop-blur-2xl transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          expanded
+            ? "w-[440px] rounded-2xl border-cyan-500/40 ring-1 ring-cyan-500/20"
+            : "w-auto max-w-[90vw] rounded-full border-white/15 hover:border-cyan-500/40",
         )}
       >
         {/* Collapsed pill */}
         <button
           onClick={() => setExpanded((e) => !e)}
-          className="flex w-full items-center gap-2 px-3.5 py-2 text-left"
-          title="Click to view full Meeting Gist"
+          className="flex w-full items-center gap-2.5 px-4 py-2 text-left"
+          title="Click to expand Meeting Intelligence"
         >
-          <span className={cn("size-2 shrink-0 rounded-full", live ? "bg-live live-dot" : "bg-muted-foreground/50")} />
-          <span className="shrink-0 font-bold text-xs text-white">{gistSpeaker}</span>
-          <span className="shrink-0 text-white/30">•</span>
-          <span className="shrink-0 rounded bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-cyan-400">
-            Gist
+          <span className={cn("size-2 shrink-0 rounded-full", isLive ? "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] animate-pulse" : "bg-muted-foreground/50")} />
+          <span className="shrink-0 bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-[10px] font-black uppercase tracking-wider text-transparent">
+            THREAD AI
           </span>
+          <span className="shrink-0 text-white/30">•</span>
+          <span className="shrink-0 font-bold text-xs text-white">{gistSpeaker}</span>
           {moment && <MomentBadge type={moment.type} />}
-          <span className="max-w-[260px] truncate text-xs font-medium text-white/90">
+          <span className="max-w-[240px] truncate text-xs font-medium text-white/90">
             {gistText}
           </span>
           <ChevronRight
@@ -87,62 +90,77 @@ export function DynamicIsland() {
 
         {/* Expanded card */}
         {expanded && (
-          <div className="border-t border-white/10 px-4 pb-3.5 pt-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="inline-flex items-center gap-1 rounded bg-cyan-500/20 px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-cyan-300">
-                    <Sparkles className="size-3 text-cyan-300" />
-                    LIVE MEETING GIST
-                  </span>
-                  {moment && <MomentBadge type={moment.type} />}
+          <div className="border-t border-white/10 px-4 pb-4 pt-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/30 ring-1 ring-white/20 text-[11px] font-black text-white">
+                  {gistSpeaker.slice(0, 2).toUpperCase()}
                 </div>
-                <p className="text-sm font-semibold leading-snug text-white">
-                  "{gistText}"
-                </p>
-                <p className="mt-1 text-xs text-white/55">
-                  {gistSpeaker} · {gistTime}
-                </p>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-white">{gistSpeaker}</span>
+                    <span className="text-[10px] text-white/40">·</span>
+                    <span className="font-mono text-[10px] text-cyan-400 font-semibold">{gistTime}</span>
+                  </div>
+                  <span className="text-[10px] text-white/50">Live Executive Intelligence</span>
+                </div>
               </div>
-              <button
-                onClick={() => {
-                  if (moment) setDismissedId(moment.id);
-                  setExpanded(false);
-                }}
-                className="rounded-full p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
-                aria-label="Dismiss"
-              >
-                <X className="size-3.5" />
-              </button>
+
+              <div className="flex items-center gap-2">
+                {moment && <MomentBadge type={moment.type} />}
+                <button
+                  onClick={() => {
+                    if (moment) setDismissedId(moment.id);
+                    setExpanded(false);
+                  }}
+                  className="rounded-full p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
+                  aria-label="Dismiss"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Gist Intelligence Card */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 shadow-inner">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Sparkles className="size-3 text-cyan-400" />
+                <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-[9.5px] font-black uppercase tracking-wider text-transparent">
+                  Key Meeting Gist
+                </span>
+              </div>
+              <p className="text-xs font-semibold leading-relaxed text-white">
+                "{gistText}"
+              </p>
             </div>
 
             {state ? (
-              <p className="mt-3 rounded-lg bg-white/5 px-3 py-2 text-center text-xs font-medium text-emerald-400">
-                {state === "approved" ? "✓ Sent to agent — action queued" : "⏰ Reminder set for after the meeting"}
+              <p className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-center text-xs font-semibold text-emerald-400">
+                {state === "approved" ? "✓ Sent to agent — action queued and executing" : "⏰ Reminder saved for post-meeting review"}
               </p>
             ) : (
-              <div className="mt-3 flex gap-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => {
                     if (moment) setDecision((d) => ({ ...d, [moment.id]: "approved" }));
                     toast.success("Meeting Gist approved for Agent action");
                   }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:bg-primary/85"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-400 via-cyan-300 to-blue-500 px-3 py-2 text-xs font-bold text-black shadow-[0_0_20px_rgba(34,211,238,0.3)] transition hover:opacity-95 active:scale-[0.98]"
                 >
-                  <Check className="size-3.5" /> Approve Action
+                  <Check className="size-3.5 stroke-[2.5]" /> Approve Action
                 </button>
                 <button
                   onClick={() => {
                     if (moment) setDecision((d) => ({ ...d, [moment.id]: "snoozed" }));
                     toast.info("Reminder set");
                   }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                  className="flex items-center justify-center gap-1 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
                 >
-                  <Clock className="size-3.5" /> Remind me
+                  <Clock className="size-3.5" /> Remind
                 </button>
                 <Link
                   to="/post-meeting"
-                  className="flex flex-1 items-center justify-center rounded-full border border-white/15 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                  className="flex items-center justify-center rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
                 >
                   Review
                 </Link>

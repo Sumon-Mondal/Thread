@@ -9,9 +9,8 @@ public struct CockpitView: View {
     @State private var showingIslandAlert = false
     @State private var showingSettingsSheet = false
     @State private var selectedMomentForAgent: DemoMoment? = nil
-    @State private var quickCommandText = ""
-    @State private var isExecutingQuickCommand = false
     @State private var showingMeetingControlsSheet = false
+    @State private var selectedFormIndex: Int = 0
 
     public init() {}
 
@@ -74,8 +73,6 @@ public struct CockpitView: View {
                             .allowsHitTesting(false)
                     }
                 }
-
-                inlineQuickAgentBar
             }
         }
         .onAppear {
@@ -478,21 +475,45 @@ public struct CockpitView: View {
     }
 
     // MARK: - Live Application Form Auto-Fill Card
+    private var stagedFormActions: [DemoAction] {
+        manager.visibleActions.filter {
+            $0.status == "staged" && (
+                $0.label.contains("Auto-fill") ||
+                $0.label.contains("Application") ||
+                $0.label.contains("RSVP") ||
+                $0.label.contains("Proposal") ||
+                $0.id.hasPrefix("form-") ||
+                $0.id.contains("link-")
+            )
+        }
+    }
+
+    private func shortFormTitle(_ action: DemoAction) -> String {
+        if action.id.contains("swe") { return "SWE 2027" }
+        if action.id.contains("qna") { return "Q&A RSVP" }
+        if action.id.contains("sustainability") { return "Sustainability" }
+        return action.label.replacingOccurrences(of: "Auto-fill ", with: "")
+    }
+
     private var formAutoFillCard: some View {
         Group {
-            if let formAction = manager.visibleActions.first(where: { $0.status == "staged" && ($0.label.contains("Auto-fill") || $0.label.contains("Application") || $0.id.contains("link-")) }) {
+            let forms = stagedFormActions
+            if !forms.isEmpty {
+                let activeIdx = min(max(0, selectedFormIndex), forms.count - 1)
+                let formAction = forms[activeIdx]
+
                 GlassCard {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
                             HStack(spacing: 6) {
                                 Image(systemName: "doc.badge.arrow.up.fill")
                                     .foregroundColor(ThreadTheme.cyan)
-                                Text("LIVE APPLICATION FORM DETECTED")
+                                Text("LIVE FORMS DETECTED (\(forms.count))")
                                     .font(.system(size: 10, weight: .black))
                                     .foregroundColor(ThreadTheme.cyan)
                             }
                             Spacer()
-                            Text("PROFILE READY")
+                            Text("READY TO SIGN")
                                 .font(.system(size: 9, weight: .bold))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
@@ -501,37 +522,160 @@ public struct CockpitView: View {
                                 .cornerRadius(4)
                         }
 
+                        // Form Tab Pills if multiple forms detected
+                        if forms.count > 1 {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(Array(forms.enumerated()), id: \.element.id) { idx, item in
+                                        Button(action: {
+                                            withAnimation(.easeInOut(duration: 0.18)) {
+                                                selectedFormIndex = idx
+                                            }
+                                        }) {
+                                            HStack(spacing: 5) {
+                                                Circle()
+                                                    .fill(activeIdx == idx ? ThreadTheme.cyan : Color.white.opacity(0.4))
+                                                    .frame(width: 5, height: 5)
+                                                Text(shortFormTitle(item))
+                                                    .font(.system(size: 11, weight: activeIdx == idx ? .bold : .medium))
+                                            }
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(activeIdx == idx ? ThreadTheme.cyan.opacity(0.2) : Color.white.opacity(0.06))
+                                            .foregroundColor(activeIdx == idx ? ThreadTheme.cyan : .white.opacity(0.75))
+                                            .cornerRadius(12)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(activeIdx == idx ? ThreadTheme.cyan.opacity(0.5) : Color.clear, lineWidth: 1)
+                                            )
+                                        }
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                        }
+
                         Text(formAction.label)
                             .font(.system(size: 13.5, weight: .bold))
                             .foregroundColor(.white)
 
+                        if let detail = formAction.detail {
+                            Text(detail)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .lineLimit(2)
+                        }
+
                         // Candidate profile prefill details
                         HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Applicant")
-                                    .font(.system(size: 9.5))
-                                    .foregroundColor(.secondary)
-                                Text("Shumon Mondal")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.white)
-                            }
-                            Divider().frame(height: 24).background(Color.white.opacity(0.1))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("University")
-                                    .font(.system(size: 9.5))
-                                    .foregroundColor(.secondary)
-                                Text("Northeastern")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.white)
-                            }
-                            Divider().frame(height: 24).background(Color.white.opacity(0.1))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Resume")
-                                    .font(.system(size: 9.5))
-                                    .foregroundColor(.secondary)
-                                Text("Matched (8 fields)")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(.green)
+                            if formAction.id.contains("swe") {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Applicant")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Shumon Mondal")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Role / GPA")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("SWE Intern (3.9)")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Resume")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Matched (8 fields)")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.green)
+                                }
+                            } else if formAction.id.contains("qna") {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Attendee")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Shumon Mondal")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Schedule")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Thu 4:00 PM")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Topic")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("AI / Systems")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.cyan)
+                                }
+                            } else if formAction.id.contains("sustainability") {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Project Lead")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Shumon Mondal")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Grant Request")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("$1,500 Funding")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Scope")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("IoT Sensors")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.green)
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Applicant")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Shumon Mondal")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Profile")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Northeastern CS")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Divider().frame(height: 24).background(Color.white.opacity(0.1))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Fields")
+                                        .font(.system(size: 9.5))
+                                        .foregroundColor(.secondary)
+                                    Text("Pre-Filled")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(.green)
+                                }
                             }
                         }
                         .padding(8)
@@ -541,12 +685,12 @@ public struct CockpitView: View {
                         // 1-Tap Auto-fill & Submit button
                         Button(action: {
                             Task {
-                                _ = await manager.submitActiveForm()
+                                _ = await manager.submitActiveForm(id: formAction.id)
                             }
                         }) {
                             HStack {
                                 Image(systemName: "paperplane.fill")
-                                Text("Auto-fill & Submit Application")
+                                Text("Auto-fill & Submit \(shortFormTitle(formAction))")
                             }
                             .font(.system(size: 12.5, weight: .bold))
                             .frame(maxWidth: .infinity)
@@ -1338,111 +1482,6 @@ public struct CockpitView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-        }
-    }
-
-    // MARK: - Inline Quick Agent Bar
-    private var inlineQuickAgentBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .foregroundColor(.cyan)
-                .font(.system(size: 14))
-
-            TextField("Ask Agent or e.g. 'just send it'…", text: $quickCommandText)
-                .font(.system(size: 12.5))
-                .foregroundColor(.white)
-                .onSubmit {
-                    submitQuickCommand()
-                }
-
-            if isExecutingQuickCommand {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .cyan))
-                    .frame(width: 24, height: 24)
-            } else {
-                Button(action: submitQuickCommand) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundColor(quickCommandText.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : .cyan)
-                }
-                .disabled(quickCommandText.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 9)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.07, green: 0.10, blue: 0.14))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.cyan.opacity(0.25), lineWidth: 1))
-        )
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
-    }
-
-    private func submitQuickCommand() {
-        let cmd = quickCommandText.trimmingCharacters(in: .whitespaces)
-        guard !cmd.isEmpty else { return }
-        quickCommandText = ""
-        isExecutingQuickCommand = true
-
-        let lower = cmd.lowercased()
-        if lower.contains("vote ") || lower.contains("poll") {
-            if lower.contains("yes") {
-                manager.voteOnPoll(option: "Yes")
-            } else if lower.contains("no") {
-                manager.voteOnPoll(option: "No")
-            } else if let poll = manager.activePoll, let opt = poll.options.first(where: { lower.contains($0.lowercased()) }) {
-                manager.voteOnPoll(option: opt)
-            } else if let poll = manager.activePoll, let first = poll.options.first {
-                manager.voteOnPoll(option: first)
-            } else {
-                manager.voteOnPoll(option: "Yes, Proceed")
-            }
-            isExecutingQuickCommand = false
-            return
-        }
-
-        if lower.contains("fill it up") || lower.contains("fill out") || lower.contains("submit application") || lower.contains("submit form") {
-            Task {
-                _ = await manager.submitActiveForm()
-                isExecutingQuickCommand = false
-            }
-            return
-        }
-
-        if lower.contains("summarize") || lower.contains("what happened") || lower.contains("catch me up") {
-            let summary = manager.latestMoment?.takeaway ?? (manager.visibleTranscript.suffix(3).map(\.text).joined(separator: " "))
-            let textToRead = summary.isEmpty ? "The meeting is currently in progress." : summary
-            manager.speakAloud("Latest meeting update: \(textToRead)")
-            manager.showNotification(text: "🔊 Summary: \(textToRead)")
-            isExecutingQuickCommand = false
-            return
-        }
-
-        if lower.contains("just send it") || lower == "send it" || lower == "dispatch" {
-            if let stagedEmailAction = manager.nextStagedEmailAction {
-                manager.approveAction(id: stagedEmailAction.id)
-            } else {
-                manager.showNotification(text: "No email drafts pending right now.")
-            }
-            isExecutingQuickCommand = false
-            return
-        }
-
-        if lower.contains("add to calendar") || lower.contains("schedule") {
-            if let stagedCalAction = manager.nextStagedCalendarAction {
-                manager.approveAction(id: stagedCalAction.id)
-            } else {
-                manager.showNotification(text: "No calendar items pending right now.")
-            }
-            isExecutingQuickCommand = false
-            return
-        }
-
-        Task {
-            let res = await manager.sendAgentMessage(prompt: cmd)
-            isExecutingQuickCommand = false
-            manager.showNotification(text: "⚡ Agent: \(res.reply.prefix(50))…")
         }
     }
 

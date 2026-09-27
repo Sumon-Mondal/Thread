@@ -1140,18 +1140,28 @@ public class ThreadSessionManager: ObservableObject {
         speakAloud("Recorded your vote: \(option).")
     }
 
-    public func submitActiveForm() async -> Bool {
-        // Mark form action executed
-        if let formAction = actions.first(where: { $0.id.contains("form") || $0.label.contains("Auto-fill") || $0.label.contains("Application") || $0.id.contains("link-") }) {
-            approveAction(id: formAction.id)
+    public func submitActiveForm(id: String? = nil) async -> Bool {
+        // Find targeted or first staged form action
+        let targetAction: DemoAction?
+        if let id = id, let match = actions.first(where: { $0.id == id }) {
+            targetAction = match
+        } else if let staged = actions.first(where: { ($0.id.contains("form") || $0.label.contains("Auto-fill") || $0.label.contains("Application") || $0.id.contains("link-")) && $0.status == "staged" }) {
+            targetAction = staged
+        } else {
+            targetAction = actions.first(where: { $0.id.contains("form") || $0.label.contains("Auto-fill") || $0.label.contains("Application") || $0.id.contains("link-") })
         }
 
-        showNotification(text: "📝 Application Form Auto-filled & Submitted!")
+        let label = targetAction?.label ?? "Application Form"
+        if let target = targetAction {
+            approveAction(id: target.id)
+        }
+
+        showNotification(text: "📝 \(label) Submitted!")
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
         updateLiveActivity()
 
-        speakAloud("Application form auto-filled with your resume and submitted successfully.")
+        speakAloud("\(label) submitted successfully.")
         return true
     }
 

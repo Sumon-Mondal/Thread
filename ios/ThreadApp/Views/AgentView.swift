@@ -1014,6 +1014,32 @@ public struct AgentView: View {
             return
         }
 
+        // Live poll: "vote yes", "vote no", or the option's name
+        if lower.hasPrefix("vote") || lower.contains("poll") {
+            if let poll = manager.activePoll {
+                let option = poll.options.first(where: { lower.contains($0.lowercased()) })
+                    ?? (lower.contains(" no") ? poll.options.first(where: { $0.lowercased().hasPrefix("no") }) : nil)
+                    ?? poll.options.first ?? "Yes"
+                manager.voteOnPoll(option: option)
+                messages.append(AgentChatMessage(role: "agent", text: "Voted \"\(option)\" on: \(poll.question)"))
+            } else {
+                messages.append(AgentChatMessage(role: "agent", text: "There's no live poll right now."))
+            }
+            return
+        }
+
+        // Detected application form: "fill it up", "submit application"
+        if lower.contains("fill it up") || lower.contains("submit application") || lower.contains("submit form") {
+            Task {
+                let submitted = await manager.submitActiveForm()
+                messages.append(AgentChatMessage(
+                    role: "agent",
+                    text: submitted ? "Filled in and submitted the application from your profile." : "There's no application form waiting right now."
+                ))
+            }
+            return
+        }
+
         // 1. Direct Execution Commands: "just send it", "send it", "send email"
         if lower.contains("just send it") || lower == "send it" || lower == "send now" || lower == "dispatch" {
             // Find most recent email draft

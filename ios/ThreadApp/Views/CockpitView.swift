@@ -40,10 +40,6 @@ public struct CockpitView: View {
             VStack(spacing: 0) {
                 headerBar
 
-                if let bannerText = manager.notificationBannerText {
-                    notificationToast(text: bannerText)
-                }
-
                 demoModeIndicatorBanner
                 drivingModeBanner
 
@@ -59,15 +55,24 @@ public struct CockpitView: View {
                         meetingPollCard
                         formAutoFillCard
 
-                        if !manager.isMeetingActive {
-                            standbyExecutiveDashboard
-                        } else {
+                        if manager.isMeetingActive {
                             activeMeetingCockpitContent
+                        } else if manager.isDemoMode && manager.isDemoEnded {
+                            endedMeetingContent
+                        } else {
+                            standbyExecutiveDashboard
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .padding(.bottom, 90)
+                }
+                // Floats over the content so toasts never push the page down.
+                .overlay(alignment: .top) {
+                    if let bannerText = manager.notificationBannerText {
+                        notificationToast(text: bannerText)
+                            .allowsHitTesting(false)
+                    }
                 }
 
                 inlineQuickAgentBar
@@ -135,7 +140,7 @@ public struct CockpitView: View {
                     Circle()
                         .fill(manager.isMeetingActive ? Color.green : (speechManager.isRecording ? Color.red : Color.cyan))
                         .frame(width: 5, height: 5)
-                    Text(manager.isMeetingActive ? (manager.isDemoMode ? "DEMO" : "LIVE") : "STANDBY")
+                    Text(manager.isMeetingActive ? (manager.isDemoMode ? "DEMO" : "LIVE") : (manager.isDemoTimelineShown ? "ENDED" : "STANDBY"))
                         .font(.system(size: 9, weight: .heavy, design: .rounded))
                         .foregroundColor(manager.isMeetingActive ? .green : .cyan)
                 }
@@ -209,55 +214,94 @@ public struct CockpitView: View {
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 
-    // MARK: - Demo Mode Indicator Banner
+    // MARK: - Demo Presenter Strip
+    /// One line of presenter controls: clock and headline, then Pause/Resume, Next and End (or Replay/Exit once ended).
     private var demoModeIndicatorBanner: some View {
         Group {
-            if manager.isDemoMode && manager.isDemoRunning {
+            if manager.isDemoTimelineShown {
                 HStack(spacing: 8) {
-                    Circle().fill(Color.green).frame(width: 8, height: 8)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("LIVE DEMO MEETING IN PROGRESS")
-                            .font(.system(size: 10, weight: .black, design: .rounded))
-                            .foregroundColor(.green)
-                        Text("\(manager.currentSpeaker.name) · \(manager.shortHeadline)")
-                            .font(.system(size: 10.5, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    Spacer()
-                    Button(action: {
-                        manager.advanceToNextMilestone()
-                    }) {
-                        Text("Next Minute ⏭")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.white.opacity(0.15))
-                            .cornerRadius(6)
-                    }
-                    Button(action: {
-                        withAnimation {
-                            manager.stopDemoMeeting()
+                    Circle()
+                        .fill(manager.isDemoEnded ? ThreadTheme.textMuted : (manager.isDemoPaused ? ThreadTheme.warning : ThreadTheme.success))
+                        .frame(width: 6, height: 6)
+
+                    Text(demoClockLabel)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundColor(ThreadTheme.textPrimary)
+                        .lineLimit(1)
+                        .fixedSize()
+
+                    Text(manager.isDemoEnded ? endedSummary : manager.shortHeadline)
+                        .font(.system(size: 12))
+                        .foregroundColor(ThreadTheme.textMuted)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Spacer(minLength: 4)
+
+                    if manager.isDemoEnded {
+                        demoTextButton("Replay") { manager.startDemoMeeting() }
+                        demoTextButton("Exit", tint: ThreadTheme.textMuted) {
+                            withAnimation { manager.stopDemoMeeting() }
                         }
-                    }) {
-                        Text("End ⏹")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.red)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.red.opacity(0.15))
-                            .cornerRadius(6)
+                    } else {
+                        demoIconButton(manager.isDemoPaused ? "play.fill" : "pause.fill",
+                                       label: manager.isDemoPaused ? "Resume" : "Pause") {
+                            manager.toggleDemoPlayback()
+                        }
+                        demoIconButton("forward.fill", label: "Next") {
+                            manager.advanceToNextMilestone()
+                        }
+                        demoTextButton("End", tint: ThreadTheme.liveRecording) {
+                            withAnimation { manager.endDemoMeeting() }
+                        }
                     }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Color.green.opacity(0.12))
-                .cornerRadius(8)
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.green.opacity(0.3), lineWidth: 1))
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.04))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(ThreadTheme.cardBorder, lineWidth: 1))
+                )
                 .padding(.horizontal, 16)
-                .padding(.top, 4)
+                .padding(.top, 6)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
+        }
+    }
+
+    private var demoClockLabel: String {
+        if manager.isDemoEnded { return "Ended" }
+        let clock = ThreadSessionManager.clock(manager.elapsed)
+        return manager.isDemoPaused ? "Paused \(clock)" : clock
+    }
+
+    private var endedSummary: String {
+        let awaiting = manager.visibleActions.filter { $0.status == "staged" }.count
+        return awaiting == 0 ? "All actions done" : "\(awaiting) awaiting approval"
+    }
+
+    private func demoIconButton(_ systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(ThreadTheme.textSecondary)
+                .frame(width: 30, height: 28)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .accessibilityLabel(label)
+    }
+
+    private func demoTextButton(_ title: String, tint: Color = ThreadTheme.cyan, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(tint)
+                .padding(.horizontal, 10)
+                .frame(height: 28)
+                .background(Color.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 
@@ -270,10 +314,10 @@ public struct CockpitView: View {
                         .foregroundColor(.yellow)
                         .font(.system(size: 13, weight: .bold))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Hands-Free Driving Copilot Active")
+                        Text("Driving mode")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.white)
-                        Text("Spoken voice announcements enabled · Tap or speak to respond")
+                        Text(manager.isAmbientListeningEnabled ? "New moments are read aloud · tap or say \"just send it\"" : "New moments are read aloud · tap to respond")
                             .font(.system(size: 9.5))
                             .foregroundColor(.yellow.opacity(0.9))
                     }
@@ -303,7 +347,7 @@ public struct CockpitView: View {
         Group {
             if manager.isDrivingMode {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("DRIVING COPILOT · LARGE TOUCH TARGETS")
+                    Text("HANDS-FREE")
                         .font(.system(size: 10, weight: .black))
                         .foregroundColor(.yellow)
 
@@ -330,7 +374,7 @@ public struct CockpitView: View {
 
                         // 1-Tap Quick Approve Next Staged Action
                         Button(action: {
-                            if let first = manager.actions.first(where: { $0.status == "staged" }) {
+                            if let first = manager.visibleActions.first(where: { $0.status == "staged" }) {
                                 manager.approveAction(id: first.id)
                             } else {
                                 manager.speakAloud("No pending actions right now.")
@@ -436,7 +480,7 @@ public struct CockpitView: View {
     // MARK: - Live Application Form Auto-Fill Card
     private var formAutoFillCard: some View {
         Group {
-            if let formAction = manager.actions.first(where: { $0.status == "staged" && ($0.label.contains("Auto-fill") || $0.label.contains("Application") || $0.id.contains("link-")) }) {
+            if let formAction = manager.visibleActions.first(where: { $0.status == "staged" && ($0.label.contains("Auto-fill") || $0.label.contains("Application") || $0.id.contains("link-")) }) {
                 GlassCard {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -942,7 +986,7 @@ public struct CockpitView: View {
                     .font(.system(size: 11, weight: .black))
                     .foregroundColor(.secondary)
                 Spacer()
-                let awaiting = manager.actions.filter { $0.status == "staged" }.count
+                let awaiting = manager.visibleActions.filter { $0.status == "staged" }.count
                 Text("\(awaiting) AWAITING")
                     .font(.system(size: 10, weight: .bold))
                     .padding(.horizontal, 6)
@@ -952,7 +996,7 @@ public struct CockpitView: View {
                     .cornerRadius(6)
             }
 
-            if manager.actions.isEmpty {
+            if manager.visibleActions.isEmpty {
                 GlassCard {
                     HStack(spacing: 12) {
                         Image(systemName: "sparkles.rectangle.stack")
@@ -970,42 +1014,46 @@ public struct CockpitView: View {
                     .padding(.vertical, 4)
                 }
             } else {
-                ForEach(manager.actions) { action in
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(alignment: .top) {
-                                Image(systemName: action.status == "executed" ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                                    .foregroundColor(action.status == "executed" ? .green : .orange)
-                                    .font(.system(size: 15))
-                                    .padding(.top, 2)
+                ForEach(manager.visibleActions) { action in
+                    if manager.isMinimalHome {
+                        compactActionRow(action)
+                    } else {
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack(alignment: .top) {
+                                    Image(systemName: action.status == "executed" ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                        .foregroundColor(action.status == "executed" ? .green : .orange)
+                                        .font(.system(size: 15))
+                                        .padding(.top, 2)
 
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(action.label)
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.white)
-                                    if let detail = action.detail {
-                                        Text(detail)
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.secondary)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(action.label)
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(.white)
+                                        if let detail = action.detail {
+                                            Text(detail)
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.secondary)
+                                        }
                                     }
+                                    Spacer()
                                 }
-                                Spacer()
-                            }
 
-                            if action.status == "staged" {
-                                Button(action: {
-                                    manager.approveAction(id: action.id)
-                                }) {
-                                    HStack {
-                                        Image(systemName: "paperplane.fill")
-                                        Text("Approve & Execute")
+                                if action.status == "staged" {
+                                    Button(action: {
+                                        manager.approveAction(id: action.id)
+                                    }) {
+                                        HStack {
+                                            Image(systemName: "paperplane.fill")
+                                            Text("Approve & Execute")
+                                        }
+                                        .font(.system(size: 12, weight: .bold))
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 9)
+                                        .background(Color.blue)
+                                        .foregroundColor(.white)
+                                        .cornerRadius(8)
                                     }
-                                    .font(.system(size: 12, weight: .bold))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 9)
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(8)
                                 }
                             }
                         }
@@ -1013,6 +1061,51 @@ public struct CockpitView: View {
                 }
             }
         }
+    }
+
+    /// Minimal home: one line per action with a small Approve pill instead of a full-width button.
+    private func compactActionRow(_ action: DemoAction) -> some View {
+        let staged = action.status == "staged"
+        return HStack(spacing: 10) {
+            Image(systemName: staged ? "circle.dashed" : "checkmark.circle.fill")
+                .font(.system(size: 15))
+                .foregroundColor(staged ? ThreadTheme.warning : ThreadTheme.success)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(action.label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(staged ? ThreadTheme.textPrimary : ThreadTheme.textSecondary)
+                    .lineLimit(2)
+                if let detail = action.detail {
+                    Text(detail)
+                        .font(.system(size: 11))
+                        .foregroundColor(ThreadTheme.textMuted)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            if staged {
+                Button(action: { manager.approveAction(id: action.id) }) {
+                    Text("Approve")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(ThreadTheme.background)
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background(ThreadTheme.cyan)
+                        .clipShape(Capsule())
+                }
+                .accessibilityLabel("Approve \(action.label)")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.04))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(ThreadTheme.cardBorder, lineWidth: 1))
+        )
     }
 
     // MARK: - Meeting Notes & Minute-by-Minute Timeline Section
@@ -1077,18 +1170,24 @@ public struct CockpitView: View {
                     GlassCard {
                         VStack(alignment: .leading, spacing: 7) {
                             HStack(spacing: 6) {
-                                // Minute Timestamp Pill (e.g. 05:11)
-                                HStack(spacing: 3) {
-                                    Image(systemName: "clock")
-                                        .font(.system(size: 8.5))
+                                // Minute Timestamp (e.g. 05:11) — plain on the minimal home, a pill on standard
+                                if manager.isMinimalHome {
                                     Text(formatClock(moment.timeSec))
-                                        .font(.system(size: 10.5, weight: .black, design: .monospaced))
+                                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                        .foregroundColor(ThreadTheme.textMuted)
+                                } else {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "clock")
+                                            .font(.system(size: 8.5))
+                                        Text(formatClock(moment.timeSec))
+                                            .font(.system(size: 10.5, weight: .black, design: .monospaced))
+                                    }
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2.5)
+                                    .background(Color.cyan.opacity(0.18))
+                                    .foregroundColor(.cyan)
+                                    .cornerRadius(4)
                                 }
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2.5)
-                                .background(Color.cyan.opacity(0.18))
-                                .foregroundColor(.cyan)
-                                .cornerRadius(4)
 
                                 // Semantic Category Tag (OPPORTUNITY / DEADLINE / RESOURCE / DECISION)
                                 MomentTag(moment.type)
@@ -1127,16 +1226,19 @@ public struct CockpitView: View {
                                     .font(.system(size: 10.5, weight: .semibold))
                                     .foregroundColor(.secondary)
 
-                                Text("·")
-                                    .foregroundColor(.secondary)
+                                // The section header already explains press & hold; minimal skips the per-card hint
+                                if !manager.isMinimalHome {
+                                    Text("·")
+                                        .foregroundColor(.secondary)
 
-                                HStack(spacing: 3) {
-                                    Image(systemName: "hand.tap.fill")
-                                        .font(.system(size: 8.5))
-                                    Text("Hold 1s for Agent AI")
-                                        .font(.system(size: 9.5))
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "hand.tap.fill")
+                                            .font(.system(size: 8.5))
+                                        Text("Hold 1s for Agent AI")
+                                            .font(.system(size: 9.5))
+                                    }
+                                    .foregroundColor(.cyan.opacity(0.85))
                                 }
-                                .foregroundColor(.cyan.opacity(0.85))
 
                                 Spacer()
 
@@ -1309,7 +1411,7 @@ public struct CockpitView: View {
         }
 
         if lower.contains("summarize") || lower.contains("what happened") || lower.contains("catch me up") {
-            let summary = manager.latestMoment?.takeaway ?? (manager.allTranscript.suffix(3).map(\.text).joined(separator: " "))
+            let summary = manager.latestMoment?.takeaway ?? (manager.visibleTranscript.suffix(3).map(\.text).joined(separator: " "))
             let textToRead = summary.isEmpty ? "The meeting is currently in progress." : summary
             manager.speakAloud("Latest meeting update: \(textToRead)")
             manager.showNotification(text: "🔊 Summary: \(textToRead)")
@@ -1318,9 +1420,8 @@ public struct CockpitView: View {
         }
 
         if lower.contains("just send it") || lower == "send it" || lower == "dispatch" {
-            if let stagedEmailAction = manager.actions.first(where: { $0.status == "staged" && ($0.label.contains("Email") || $0.label.contains("✉️")) }) {
+            if let stagedEmailAction = manager.nextStagedEmailAction {
                 manager.approveAction(id: stagedEmailAction.id)
-                manager.showNotification(text: "🚀 Dispatched! Follow-up email sent via Gmail.")
             } else {
                 manager.showNotification(text: "No email drafts pending right now.")
             }
@@ -1329,11 +1430,10 @@ public struct CockpitView: View {
         }
 
         if lower.contains("add to calendar") || lower.contains("schedule") {
-            if let stagedCalAction = manager.actions.first(where: { $0.status == "staged" && ($0.label.contains("Calendar") || $0.label.contains("📅")) }) {
+            if let stagedCalAction = manager.nextStagedCalendarAction {
                 manager.approveAction(id: stagedCalAction.id)
-                manager.showNotification(text: "📅 Scheduled! Added to your Google Calendar.")
             } else {
-                manager.showNotification(text: "No calendar deadlines pending right now.")
+                manager.showNotification(text: "No calendar items pending right now.")
             }
             isExecutingQuickCommand = false
             return
@@ -1615,6 +1715,14 @@ public struct CockpitView: View {
         semanticMomentsSection
 
         // 5. Live Streaming Transcript
+        transcriptSection
+    }
+
+    // MARK: - Ended Demo Meeting (review what Thread captured)
+    @ViewBuilder
+    private var endedMeetingContent: some View {
+        actionQueueSection
+        semanticMomentsSection
         transcriptSection
     }
 

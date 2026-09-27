@@ -25,6 +25,12 @@ function DynamicIsland({ mode }: { mode: IslandMode }) {
   const initial = activeSpeaker.charAt(0) || "T";
   const lastMoment = moments.length > 0 ? moments[moments.length - 1] : undefined;
 
+  if (!playing && moments.length === 0) {
+    return (
+      <div className="flex h-7 w-28 items-center justify-center rounded-full bg-black transition-all" />
+    );
+  }
+
   if (mode === "minimal") {
     return (
       <div className="flex h-7 w-28 items-center justify-center rounded-full bg-black transition-all">

@@ -27,6 +27,54 @@ chrome.storage.local.get(["threadState"], (res) => {
 
 function persistState() {
   chrome.storage.local.set({ threadState: meetingState });
+  syncToBackend();
+}
+
+async function syncToBackend() {
+  if (!meetingState.active) return;
+  const payload = {
+    meetingTitle: meetingState.meetingTitle || "Live Meeting",
+    playing: meetingState.active,
+    elapsed: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
+    speaker: meetingState.speaker || "Speaker",
+    lastLine: meetingState.lines[meetingState.lines.length - 1]?.text || "",
+    source: "extension",
+    momentCount: meetingState.moments.length,
+    latestMoment: meetingState.moments[meetingState.moments.length - 1] || null,
+    actions: meetingState.actions.slice(-20),
+    transcript: meetingState.lines.slice(-20).map((l) => ({ id: l.id, speaker: l.speaker, text: l.text })),
+    moments: meetingState.moments.slice(-20),
+  };
+
+  const endpoints = [
+    "http://localhost:3000/api/live-state",
+    "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app/api/live-state",
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && data.commands && data.commands.length > 0) {
+          for (const cmd of data.commands) {
+            if (cmd.command === "approve" && cmd.actionId) {
+              const action = meetingState.actions.find((a) => a.id === cmd.actionId);
+              if (action && action.status !== "executed") {
+                action.status = "executed";
+                updateBadge();
+                chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
 }
 
 // Update action badge

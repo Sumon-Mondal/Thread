@@ -68,6 +68,7 @@
 		A948F2FC7D755B5061B4950D /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
 		B6C2721C988E32AF3AE9142C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitView.swift; sourceTree = "<group>"; };
+		DBBA0A17CCD76790DBE08EE3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5442CAF3E7AE4757E272CE7 /* ThreadApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ThreadApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingControlsSheet.swift; sourceTree = "<group>"; };
 		F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadApp.swift; sourceTree = "<group>"; };
@@ -133,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				29BD60457FD6A6E7E30997EA /* Assets.xcassets */,
+				DBBA0A17CCD76790DBE08EE3 /* Info.plist */,
 				F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */,
 				5EC4E8E19AA8F846C5B512F7 /* Models */,
 				846026B43D9401EC6E743476 /* Views */,
@@ -345,6 +347,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ios/ThreadApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Thread;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Thread uses your microphone to transcribe meetings and detect action items in real-time.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Thread uses speech recognition to convert speech into text for meeting intelligence.";
@@ -368,6 +371,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ios/ThreadApp/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Thread;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Thread uses your microphone to transcribe meetings and detect action items in real-time.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Thread uses speech recognition to convert speech into text for meeting intelligence.";

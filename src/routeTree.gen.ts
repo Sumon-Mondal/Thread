@@ -21,11 +21,14 @@ import { Route as PanelRouteImport } from './routes/panel'
 import { Route as PostMeetingRouteImport } from './routes/post-meeting'
 import { Route as WatchRouteImport } from './routes/watch'
 import { Route as ApiAgentRouteImport } from './routes/api/agent'
+import { Route as ApiBatchMinutesRouteImport } from './routes/api/batch-minutes'
 import { Route as ApiCalendarRouteImport } from './routes/api/calendar'
+import { Route as ApiConnectorsRouteImport } from './routes/api/connectors'
 import { Route as ApiDailyRouteImport } from './routes/api/daily'
 import { Route as ApiExtractRouteImport } from './routes/api/extract'
 import { Route as ApiLiveStateRouteImport } from './routes/api/live-state'
 import { Route as ApiSendEmailRouteImport } from './routes/api/send-email'
+import { Route as ApiVmBotRouteImport } from './routes/api/vm-bot'
 import { Route as ApplyFormIdRouteImport } from './routes/apply.$formId'
 import { Route as MeetingsIndexRouteImport } from './routes/meetings.index'
 import { Route as MeetingsIdRouteImport } from './routes/meetings.$id'
@@ -90,9 +93,19 @@ const ApiAgentRoute = ApiAgentRouteImport.update({
   path: '/api/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiBatchMinutesRoute = ApiBatchMinutesRouteImport.update({
+  id: '/api/batch-minutes',
+  path: '/api/batch-minutes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCalendarRoute = ApiCalendarRouteImport.update({
   id: '/api/calendar',
   path: '/api/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiConnectorsRoute = ApiConnectorsRouteImport.update({
+  id: '/api/connectors',
+  path: '/api/connectors',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDailyRoute = ApiDailyRouteImport.update({
@@ -113,6 +126,11 @@ const ApiLiveStateRoute = ApiLiveStateRouteImport.update({
 const ApiSendEmailRoute = ApiSendEmailRouteImport.update({
   id: '/api/send-email',
   path: '/api/send-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVmBotRoute = ApiVmBotRouteImport.update({
+  id: '/api/vm-bot',
+  path: '/api/vm-bot',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplyFormIdRoute = ApplyFormIdRouteImport.update({
@@ -144,11 +162,14 @@ export interface FileRoutesByFullPath {
   '/post-meeting': typeof PostMeetingRoute
   '/watch': typeof WatchRoute
   '/api/agent': typeof ApiAgentRoute
+  '/api/batch-minutes': typeof ApiBatchMinutesRoute
   '/api/calendar': typeof ApiCalendarRoute
+  '/api/connectors': typeof ApiConnectorsRoute
   '/api/daily': typeof ApiDailyRoute
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/vm-bot': typeof ApiVmBotRoute
   '/apply/$formId': typeof ApplyFormIdRoute
   '/meetings/$id': typeof MeetingsIdRoute
   '/meetings/': typeof MeetingsIndexRoute
@@ -166,11 +187,14 @@ export interface FileRoutesByTo {
   '/post-meeting': typeof PostMeetingRoute
   '/watch': typeof WatchRoute
   '/api/agent': typeof ApiAgentRoute
+  '/api/batch-minutes': typeof ApiBatchMinutesRoute
   '/api/calendar': typeof ApiCalendarRoute
+  '/api/connectors': typeof ApiConnectorsRoute
   '/api/daily': typeof ApiDailyRoute
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/vm-bot': typeof ApiVmBotRoute
   '/apply/$formId': typeof ApplyFormIdRoute
   '/meetings/$id': typeof MeetingsIdRoute
   '/meetings': typeof MeetingsIndexRoute
@@ -189,11 +213,14 @@ export interface FileRoutesById {
   '/post-meeting': typeof PostMeetingRoute
   '/watch': typeof WatchRoute
   '/api/agent': typeof ApiAgentRoute
+  '/api/batch-minutes': typeof ApiBatchMinutesRoute
   '/api/calendar': typeof ApiCalendarRoute
+  '/api/connectors': typeof ApiConnectorsRoute
   '/api/daily': typeof ApiDailyRoute
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/vm-bot': typeof ApiVmBotRoute
   '/apply/$formId': typeof ApplyFormIdRoute
   '/meetings/$id': typeof MeetingsIdRoute
   '/meetings/': typeof MeetingsIndexRoute
@@ -213,11 +240,14 @@ export interface FileRouteTypes {
     | '/post-meeting'
     | '/watch'
     | '/api/agent'
+    | '/api/batch-minutes'
     | '/api/calendar'
+    | '/api/connectors'
     | '/api/daily'
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
+    | '/api/vm-bot'
     | '/apply/$formId'
     | '/meetings/$id'
     | '/meetings/'
@@ -235,11 +265,14 @@ export interface FileRouteTypes {
     | '/post-meeting'
     | '/watch'
     | '/api/agent'
+    | '/api/batch-minutes'
     | '/api/calendar'
+    | '/api/connectors'
     | '/api/daily'
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
+    | '/api/vm-bot'
     | '/apply/$formId'
     | '/meetings/$id'
     | '/meetings'
@@ -257,11 +290,14 @@ export interface FileRouteTypes {
     | '/post-meeting'
     | '/watch'
     | '/api/agent'
+    | '/api/batch-minutes'
     | '/api/calendar'
+    | '/api/connectors'
     | '/api/daily'
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
+    | '/api/vm-bot'
     | '/apply/$formId'
     | '/meetings/$id'
     | '/meetings/'
@@ -280,11 +316,14 @@ export interface RootRouteChildren {
   PostMeetingRoute: typeof PostMeetingRoute
   WatchRoute: typeof WatchRoute
   ApiAgentRoute: typeof ApiAgentRoute
+  ApiBatchMinutesRoute: typeof ApiBatchMinutesRoute
   ApiCalendarRoute: typeof ApiCalendarRoute
+  ApiConnectorsRoute: typeof ApiConnectorsRoute
   ApiDailyRoute: typeof ApiDailyRoute
   ApiExtractRoute: typeof ApiExtractRoute
   ApiLiveStateRoute: typeof ApiLiveStateRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
+  ApiVmBotRoute: typeof ApiVmBotRoute
   ApplyFormIdRoute: typeof ApplyFormIdRoute
   MeetingsIdRoute: typeof MeetingsIdRoute
   MeetingsIndexRoute: typeof MeetingsIndexRoute
@@ -376,11 +415,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAgentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/batch-minutes': {
+      id: '/api/batch-minutes'
+      path: '/api/batch-minutes'
+      fullPath: '/api/batch-minutes'
+      preLoaderRoute: typeof ApiBatchMinutesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/calendar': {
       id: '/api/calendar'
       path: '/api/calendar'
       fullPath: '/api/calendar'
       preLoaderRoute: typeof ApiCalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/connectors': {
+      id: '/api/connectors'
+      path: '/api/connectors'
+      fullPath: '/api/connectors'
+      preLoaderRoute: typeof ApiConnectorsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/daily': {
@@ -409,6 +462,13 @@ declare module '@tanstack/react-router' {
       path: '/api/send-email'
       fullPath: '/api/send-email'
       preLoaderRoute: typeof ApiSendEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/vm-bot': {
+      id: '/api/vm-bot'
+      path: '/api/vm-bot'
+      fullPath: '/api/vm-bot'
+      preLoaderRoute: typeof ApiVmBotRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/apply/$formId': {
@@ -448,11 +508,14 @@ const rootRouteChildren: RootRouteChildren = {
   PostMeetingRoute: PostMeetingRoute,
   WatchRoute: WatchRoute,
   ApiAgentRoute: ApiAgentRoute,
+  ApiBatchMinutesRoute: ApiBatchMinutesRoute,
   ApiCalendarRoute: ApiCalendarRoute,
+  ApiConnectorsRoute: ApiConnectorsRoute,
   ApiDailyRoute: ApiDailyRoute,
   ApiExtractRoute: ApiExtractRoute,
   ApiLiveStateRoute: ApiLiveStateRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,
+  ApiVmBotRoute: ApiVmBotRoute,
   ApplyFormIdRoute: ApplyFormIdRoute,
   MeetingsIdRoute: MeetingsIdRoute,
   MeetingsIndexRoute: MeetingsIndexRoute,

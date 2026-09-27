@@ -6,6 +6,7 @@ const inputSchema = z.object({
   message: z.string().min(1).max(4000),
   meetingId: z.string().max(100).optional(),
   documents: z.array(z.object({ name: z.string().max(200), text: z.string().max(30000) })).max(5).default([]),
+  images: z.array(z.object({ name: z.string().max(200), dataUrl: z.string().max(500000).optional(), text: z.string().max(10000).optional() })).max(5).default([]),
   liveContext: z.string().max(20000).optional(),
   connectedApps: z.array(z.string().max(60)).max(60).optional(),
 });
@@ -18,25 +19,32 @@ function buildSystem() {
     (m) =>
       `## ${m.id}: ${m.title} (${m.platform}, ${m.date})\nSummary: ${m.summary}\nTranscript: ${m.transcript}\nLinks: ${m.links.map((l) => `${l.label} ${l.url} [${l.via}]`).join("; ")}\nContacts: ${m.contacts.map((c) => `${c.name} <${c.email}> ${c.role}`).join("; ")}\nForms: ${m.formIds.join(", ")}`,
   ).join("\n\n");
-  return `You are Thread's agent. The user types a request; you do what is possible using the meeting context and uploaded documents.
-Capabilities: fill one of the known forms, draft an email, or just answer.
+  return `You are Thread's autonomous meeting agent. The user types a request or uploads images/documents; you fulfill their request using the meeting context, knowledge database, and uploaded files.
+
+Capabilities:
+1. QR Codes & Shared Links: Retrieve and explain QR codes or links from slides/chat. Offer to auto-fill the application form using candidate resume.
+2. Host & Contacts: Look up hosts and attendees (e.g. Sarah Chen <sarah.chen@novadynamics.internal>), draft follow-up emails, and stage for one-tap dispatch.
+3. Form Auto-Fill: Fill forms using candidate resume and meeting details.
+4. Batch Minutes Dispatch: When given attendee emails or an image roster and asked to send meeting minutes, extract all emails and prepare batch delivery to all recipients.
+5. Calendar & Deadlines: Extract deadlines and create calendar milestones.
+
 Available forms:
 ${forms}
 
-Past meetings:
+Past meetings & Memory:
 ${meetings}
 
 Respond with ONLY a JSON object:
 {
  "reply": "short friendly message describing what you did",
  "steps": ["short step 1", "short step 2"],
- "form": null or { "formId": "...", "submitTo": "email address the completed form should be sent to, or \"\"", "fields": { "<fieldKey>": { "value": "...", "source": "where it came from, e.g. resume, meeting transcript, QR link" } } },
+ "form": null or { "formId": "...", "submitTo": "email", "fields": { "<fieldKey>": { "value": "...", "source": "..." } } },
  "email": null or { "to": "email", "subject": "...", "body": "..." },
- "events": [] or [{ "title": "...", "start": "ISO 8601 local datetime, e.g. 2026-10-02T15:00:00", "durationMin": 30, "notes": "...", "timeGuessed": true|false }]
+ "events": [] or [{ "title": "...", "start": "ISO datetime", "durationMin": 30, "notes": "...", "timeGuessed": true|false }],
+ "qrCard": null or { "label": "...", "url": "...", "via": "slide QR code", "meetingTitle": "..." },
+ "batchDispatch": null or { "recipients": ["email1", "email2"], "meetingTitle": "...", "subject": "...", "body": "..." }
 }
-Rules: only use field keys from the chosen form. Fill as many fields as possible from the meeting transcript (role names, dates, instructors, specimens, contacts, deadlines) and uploaded documents (personal details). Sources must be specific: "Transcript 00:42 (Dr. Osei)", "Resume", "QR link", "Meeting chat". Never invent personal data not in documents or context — leave the value "" and source "needs your input". Keep steps to 2-5 items. Emails should be concise and signed with the user's name if known.
-Sending: emails you draft and forms you submit are REALLY sent from the user's Gmail after they click Approve. If the user says "submit", "send", or "email it to X", prepare it and say it's ready for approval. Use an email address the user typed if given; otherwise use the relevant contact from the meeting (set form.submitTo). If no address is known, leave it "" and ask the user for one in the reply. Never claim something was already sent.
-Calendar: when the user asks to add something to their calendar, schedule, remind them, or put action items on the calendar, return "events" (max 8) — one per item. These are REALLY created in the user's Google Calendar after they click Approve. Resolve relative dates ("Friday at 3") against the current date given below. If no time is known use 09:00 the next day and set timeGuessed true. Say events are ready for approval, never that they were added.`;
+Rules: Be precise and helpful. If 10 emails are detected or an image roster is provided to send minutes to, populate batchDispatch with all recipients and full synthesized minutes. Keep UI clean.`;
 }
 
 export const Route = createFileRoute("/api/agent")({
@@ -49,14 +57,16 @@ export const Route = createFileRoute("/api/agent")({
         } catch {
           return Response.json({ error: "Invalid request." }, { status: 400 });
         }
-        const apiKey = process.env["LOVABLE_API_KEY"];
+        const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
         if (!apiKey) return Response.json({ error: "AI is not configured." }, { status: 500 });
         const docs = parsed.documents.map((d) => `### Document: ${d.name}\n${d.text}`).join("\n\n");
+        const imgContext = parsed.images.map((img) => `### Uploaded Image / Roster: ${img.name}\n${img.text || "Image indexed in database"}`).join("\n\n");
         const user = [
           parsed.meetingId ? `Focus meeting: ${parsed.meetingId}` : "",
           parsed.liveContext ? `Live meeting context (happening now):\n${parsed.liveContext}` : "",
-          parsed.connectedApps?.length ? `Connected add-ins (you may propose sending results to these, e.g. "Send action items to Asana"; say it is queued for approval): ${parsed.connectedApps.join(", ")}` : "",
-          docs ? `Uploaded documents:\n${docs}` : "No documents uploaded.",
+          parsed.connectedApps?.length ? `Connected add-ins: ${parsed.connectedApps.join(", ")}` : "",
+          docs ? `Database documents:\n${docs}` : "",
+          imgContext ? `Database images / rosters:\n${imgContext}` : "",
           `Current date/time: ${new Date().toISOString()}`,
           `User request: ${parsed.message}`,
         ]

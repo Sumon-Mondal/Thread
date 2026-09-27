@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/extract")({
         } catch {
           return Response.json({ error: "Invalid request: expected { transcript, source }" }, { status: 400 });
         }
-        const apiKey = process.env["LOVABLE_API_KEY"];
+        const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
         if (!apiKey) {
           return Response.json({ error: "AI is not configured (missing API key)." }, { status: 500 });
         }

@@ -17,6 +17,8 @@ export interface Moment {
   timeSec: number;
   takeaway: string;
   detail: string;
+  /** 2–3 words for the iPhone Dynamic Island; both apps show the same one. */
+  headline?: string;
   link?: string;
   matchedSkills?: { skill: string; matched: boolean }[];
 }
@@ -80,28 +82,29 @@ export const SCRIPT_TRANSCRIPT: TranscriptLine[] = [
   { id: "t11", speaker: "Sarah Chen", role: SPEAKERS.sarah.role, timeSec: 102, text: "If you're driving or away from your desk right now — no worries, everything shared today is being captured for you." },
   { id: "t12", speaker: "Priya Nair", role: SPEAKERS.priya.role, timeSec: 112, text: "Final note from me: referral applications get priority review, so mention you attended Discovery Day.", momentType: "DECISION" },
   { id: "t13", speaker: "Sarah Chen", role: SPEAKERS.sarah.role, timeSec: 122, text: "That's a wrap for the main session. Breakout rooms open in two minutes — thank you all for being here!" },
+  { id: "t14", speaker: "Michael Torres", role: SPEAKERS.michael.role, timeSec: 311, text: "Looking at campus facilities, we really need a better trash management and aluminum can recycling system before winter break. If anyone wants to join Jordan Lee by November 15, let us know at jordan.lee@helixsupply.com.", momentType: "OPPORTUNITY" },
 ];
 
 export const SCRIPT_MOMENTS: Moment[] = [
   {
-    id: "m1", type: "OPPORTUNITY", speaker: "Sarah Chen", timeSec: 18,
+    id: "m1", type: "OPPORTUNITY", speaker: "Sarah Chen", timeSec: 18, headline: "Internships Open",
     takeaway: "Summer 2027 SWE internship applications are open as of today.",
     detail: "Paid 12-week roles across Platform, Infrastructure, and Applied AI teams. Thread matched this against your stated goal of an ML-adjacent internship from your Sept 12 career-fair meeting.",
     link: "/apply/internship-app",
   },
   {
-    id: "m2", type: "RESOURCE", speaker: "Michael Torres", timeSec: 36,
+    id: "m2", type: "RESOURCE", speaker: "Michael Torres", timeSec: 36, headline: "Portal QR Code",
     takeaway: "Application portal link + QR code captured from shared slide.",
     detail: "Gemini vision detected a QR code on the shared slide and decoded it to the application portal. The same URL was posted in meeting chat and cross-verified.",
     link: "/apply/internship-app",
   },
   {
-    id: "m3", type: "DEADLINE", speaker: "Sarah Chen", timeSec: 58,
+    id: "m3", type: "DEADLINE", speaker: "Sarah Chen", timeSec: 58, headline: "Oct 18 Deadline",
     takeaway: "Applications close firmly on October 18, 11:59 PM ET — no extensions.",
     detail: "Hard cutoff stated twice with emphasis. Thread staged a reminder for Oct 16 (T-48h) and Oct 18 (T-6h).",
   },
   {
-    id: "m4", type: "REQUIREMENT", speaker: "Michael Torres", timeSec: 70,
+    id: "m4", type: "REQUIREMENT", speaker: "Michael Torres", timeSec: 70, headline: "Python & Systems",
     takeaway: "Wants Python fundamentals; distributed systems / data pipelines preferred.",
     detail: "Compared against your profile: Python matched from 3 projects; distributed systems matched from your coursework and capstone.",
     matchedSkills: [
@@ -112,14 +115,25 @@ export const SCRIPT_MOMENTS: Moment[] = [
     ],
   },
   {
-    id: "m5", type: "EVENT", speaker: "Priya Nair", timeSec: 90,
+    id: "m5", type: "EVENT", speaker: "Priya Nair", timeSec: 90, headline: "Engineering Q&A",
     takeaway: "Engineering Q&A panel next Thursday at 4 PM ET with former interns.",
     detail: "Calendar invite staged. Former interns on the panel — strong signal for referral conversations.",
   },
   {
-    id: "m6", type: "DECISION", speaker: "Priya Nair", timeSec: 112,
+    id: "m6", type: "DECISION", speaker: "Priya Nair", timeSec: 112, headline: "Priority Referrals",
     takeaway: "Referral applications get priority review — mention Discovery Day attendance.",
     detail: "Logged to meeting ledger. Thread added 'Request referral mention' to your action queue.",
+  },
+  {
+    id: "m7", type: "OPPORTUNITY", speaker: "Michael Torres", timeSec: 311, headline: "Trash & Waste",
+    takeaway: "We need a better trash management system.",
+    detail: "Michael highlighted campus facility sustainability targets: implementing smart IoT recycling bins and aluminum can disposal across campus by November 15. Contact eco-lead jordan.lee@helixsupply.com to join the committee.",
+    link: "https://helixsupply.com/sustainability/smart-bins",
+    matchedSkills: [
+      { skill: "Sustainability", matched: true },
+      { skill: "IoT Sensors", matched: true },
+      { skill: "Resource Management", matched: true },
+    ],
   },
 ];
 
@@ -130,6 +144,7 @@ export const SCRIPT_ACTIONS: AgentAction[] = [
   { id: "a4", label: "Add Q&A panel to calendar — Thu 4 PM ET", kind: "calendar", status: "staged", timeSec: 92, detail: "Draft invite with Meet link; requires your approval" },
   { id: "a5", label: "Draft chat reply: \"Thanks! Attending from the road — grabbing the link now 🙌\"", kind: "reply", status: "staged", timeSec: 104, detail: "Agent-drafted reply to meeting chat; requires your approval" },
   { id: "a6", label: "Prepare application — pre-fill portal form", kind: "apply", status: "staged", timeSec: 118, detail: "Profile pre-fill + statement of interest draft ready for review" },
+  { id: "a7", label: "Draft email to Jordan Lee re: Smart Bins", kind: "reply", status: "staged", timeSec: 311, detail: "Campus recycling initiative cutoff Nov 15; email jordan.lee@helixsupply.com" },
 ];
 
 export const SCRIPT_CHAT: ChatMsg[] = [
@@ -143,8 +158,9 @@ export const SCRIPT_CHAT: ChatMsg[] = [
   { id: "c6", from: "Sarah Chen", text: "Yes Alex — progress saves automatically ✅", timeSec: 116, reactions: ["✅"] },
 ];
 
-/** Slide shown on the shared screen starting at t=36s */
+/** Slide shown on the shared screen from t=36s until the main session wraps up at t=122s */
 export const SCREEN_SHARE_START = 36;
+export const SCREEN_SHARE_END = 122;
 export const SLIDE = {
   title: "Summer 2027 — SWE Internship",
   subtitle: "Applications open today · Close Oct 18",
@@ -153,6 +169,8 @@ export const SLIDE = {
 };
 
 export const DEMO_END_SEC = 130;
+/** Discovery Day runs on to Michael's 5:11 remark; the iPhone demo uses the same length. */
+export const DISCOVERY_END_SEC = 330;
 
 // ---------------------------------------------------------------------------
 // Scenario system — multiple scripted meetings for demos and presentations.
@@ -171,6 +189,7 @@ export interface Scenario {
   actions: AgentAction[];
   chat: ChatMsg[];
   screenShareStart: number;
+  screenShareEnd: number;
   screenSharePresenter: string;
   slide: { title: string; subtitle: string; url: string; bullets: string[] };
   endSec: number;
@@ -197,9 +216,10 @@ export const SCENARIOS: Record<string, Scenario> = {
     actions: SCRIPT_ACTIONS,
     chat: SCRIPT_CHAT,
     screenShareStart: SCREEN_SHARE_START,
+    screenShareEnd: SCREEN_SHARE_END,
     screenSharePresenter: "Michael Torres",
     slide: SLIDE,
-    endSec: DEMO_END_SEC,
+    endSec: DISCOVERY_END_SEC,
   },
   diatom: {
     id: "diatom",
@@ -280,6 +300,7 @@ export const SCENARIOS: Record<string, Scenario> = {
       { id: "dc6", from: "Dr. Amara Osei", text: "Yes — if the coating holds up ✅", timeSec: 116, reactions: ["✅"] },
     ],
     screenShareStart: 36,
+    screenShareEnd: DEMO_END_SEC - 8,
     screenSharePresenter: "Liam Park",
     slide: {
       title: "Thalassiosira sp. — A2 Frustule",

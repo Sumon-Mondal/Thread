@@ -25,6 +25,7 @@ export function LiveStatePublisher() {
           speaker: (s.activeSpeaker || "").slice(0, 100),
           lastLine: (s.transcript[s.transcript.length - 1]?.text ?? "").slice(0, 500),
           shortHeadline,
+          liveSummary: (m ? m.takeaway : (s.transcript[s.transcript.length - 1]?.text ?? "")).slice(0, 300),
           source: "web",
           momentCount: s.moments.length,
           latestMoment: m ? { type: m.type, takeaway: m.takeaway.slice(0, 300) } : null,

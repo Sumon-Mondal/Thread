@@ -12,197 +12,213 @@ public struct ThreadLiveActivity: Widget {
                 .activityBackgroundTint(Color(red: 0.05, green: 0.07, blue: 0.10))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
-            DynamicIsland {
-                // Expanded View
+            let state = context.state
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.blue.opacity(0.3))
-                            .frame(width: 22, height: 22)
-                            .overlay(
-                                Text(String(context.state.speaker.prefix(2)).uppercased())
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundColor(.blue)
-                            )
-                        Text(context.state.speaker)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                    }
-                    .padding(.leading, 4)
+                    SpeakerAvatar(name: state.speaker, size: 34)
+                        .padding(.leading, 4)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 6, height: 6)
-                        Text(formatClock(context.state.elapsedSeconds))
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.trailing, 4)
+                    MeetingClock(state: state, size: 12)
+                        .padding(.trailing, 4)
                 }
 
+                // Below the camera: who is speaking, on which platform, and what kind of moment it is
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        if let type = context.state.latestMomentType {
-                            Text(type.uppercased())
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(momentColor(type).opacity(0.2))
-                                .foregroundColor(momentColor(type))
-                                .cornerRadius(4)
-                        }
-                        Text(context.state.latestMomentTakeaway ?? context.state.shortHeadline)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white.opacity(0.9))
-                            .lineLimit(2)
+                    VStack(spacing: 1) {
+                        Text(state.speaker)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        MeetingContextLine(state: state, includeBrand: false)
+                            .font(.system(size: 11))
+                            .lineLimit(1)
                     }
-                    .padding(.vertical, 4)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    if let actionLabel = context.state.stagedActionLabel, !context.state.isActionExecuted {
-                        Link(destination: URL(string: "threadapp://approve?id=\(context.state.stagedActionId ?? "")")!) {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 12))
-                                Text(actionLabel)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .lineLimit(1)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                            .background(Color.blue)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(gist(state))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.white)
-                            .cornerRadius(10)
-                        }
-                        .padding(.top, 2)
-                    } else {
-                        HStack {
-                            Image(systemName: "waveform")
-                                .font(.system(size: 11))
-                                .foregroundColor(.blue)
-                            Text("Thread listening and taking action notes…")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                        }
-                        .padding(.top, 2)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        ApproveButton(state: state)
                     }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 2)
                 }
             } compactLeading: {
-                // Compact Leading: Animated waveform or Thread T mark
-                HStack(spacing: 2) {
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.blue)
-                        .frame(width: 2, height: 10)
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.blue)
-                        .frame(width: 2, height: 14)
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color.blue)
-                        .frame(width: 2, height: 8)
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(state.isPaused ? Color.orange : Color.green)
+                        .frame(width: 6, height: 6)
+                    Text(firstName(state.speaker))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
                 }
-                .padding(.leading, 4)
+                .padding(.leading, 2)
             } compactTrailing: {
-                // Compact Trailing: 3-5 word live summary
-                Text(context.state.shortHeadline)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(red: 0.6, green: 0.8, blue: 1.0))
+                Text(state.isPaused ? "Paused" : state.shortHeadline)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(state.isPaused ? .orange : .cyan)
                     .lineLimit(1)
-                    .padding(.trailing, 4)
+                    .minimumScaleFactor(0.6)
+                    .frame(maxWidth: 84, alignment: .trailing)
+                    .padding(.trailing, 2)
             } minimal: {
-                // Minimal (when multiple activities exist)
-                Circle()
-                    .fill(Color.green)
-                    .frame(width: 10, height: 10)
+                Text(speakerInitials(state.speaker))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(state.isPaused ? .orange : .cyan)
             }
         }
     }
 }
 
-// Lock Screen Banner View
+// Lock Screen banner: speaker row with the clock, the live gist, then the one-tap approval
 struct LockScreenLiveActivityView: View {
     let state: ThreadActivityAttributes.ContentState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                HStack(spacing: 6) {
-                    Text("THREAD")
-                        .font(.system(size: 10, weight: .black))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.3))
-                        .foregroundColor(.blue)
-                        .cornerRadius(4)
-                    Text(state.meetingTitle)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                SpeakerAvatar(name: state.speaker, size: 30)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(state.isPaused ? "Paused · \(state.speaker)" : state.speaker)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
                         .lineLimit(1)
+                    MeetingContextLine(state: state, includeBrand: true)
+                        .font(.system(size: 11))
+                        .lineLimit(1)
                 }
-                Spacer()
-                Text(formatClock(state.elapsedSeconds))
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.secondary)
+                Spacer(minLength: 8)
+                MeetingClock(state: state, size: 13)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    if let type = state.latestMomentType {
-                        Text(type)
-                            .font(.system(size: 9, weight: .bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(momentColor(type).opacity(0.25))
-                            .foregroundColor(momentColor(type))
-                            .cornerRadius(4)
-                    }
-                    Text(state.speaker)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-                Text(state.latestMomentTakeaway ?? state.shortHeadline)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
-                    .lineLimit(2)
-            }
+            Text(gist(state))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white.opacity(0.95))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let action = state.stagedActionLabel, !state.isActionExecuted {
-                Link(destination: URL(string: "threadapp://approve?id=\(state.stagedActionId ?? "")")!) {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Approve: \(action)")
-                            .font(.system(size: 12, weight: .bold))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-            }
+            ApproveButton(state: state, prefix: "Approve: ")
         }
         .padding(14)
-        .background(Color(red: 0.07, green: 0.10, blue: 0.14))
     }
 }
 
+/// "Thread · Google Meet · Resource", with the moment type in its colour (or "Paused" in orange).
+private struct MeetingContextLine: View {
+    let state: ThreadActivityAttributes.ContentState
+    let includeBrand: Bool
+
+    var body: some View {
+        let base = Text(includeBrand ? "Thread · \(state.meetingPlatform)" : state.meetingPlatform)
+            .foregroundColor(.white.opacity(0.55))
+        if state.isPaused {
+            return base + Text(" · Paused").foregroundColor(.orange)
+        }
+        if let type = state.latestMomentType {
+            return base + Text(" · \(type.capitalized)").foregroundColor(momentColor(type))
+        }
+        return base
+    }
+}
+
+private struct ApproveButton: View {
+    let state: ThreadActivityAttributes.ContentState
+    var prefix: String = ""
+
+    var body: some View {
+        if let label = state.stagedActionLabel, !state.isActionExecuted,
+           let id = state.stagedActionId, let url = URL(string: "threadapp://approve?id=\(id)") {
+            Link(destination: url) {
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                    Text(prefix + label)
+                        .lineLimit(1)
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.cyan.opacity(0.18))
+                .foregroundColor(.cyan)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+}
+
+private struct SpeakerAvatar: View {
+    let name: String
+    let size: CGFloat
+
+    var body: some View {
+        Circle()
+            .fill(Color.white.opacity(0.12))
+            .frame(width: size, height: size)
+            .overlay(
+                Text(speakerInitials(name))
+                    .font(.system(size: size * 0.38, weight: .semibold))
+                    .foregroundColor(.white)
+            )
+    }
+}
+
+/// Running meeting timer, or the frozen time while paused. A fixed width keeps the live timer
+/// from claiming all the space, which would squeeze out everything next to it.
+private struct MeetingClock: View {
+    let state: ThreadActivityAttributes.ContentState
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if state.isPaused {
+                Text(String(format: "%d:%02d", state.elapsedSeconds / 60, state.elapsedSeconds % 60))
+                    .foregroundColor(.orange)
+            } else {
+                Text(state.startDate, style: .timer)
+                    .foregroundColor(.cyan)
+            }
+        }
+        .font(.system(size: size, weight: .semibold, design: .monospaced))
+        .multilineTextAlignment(.trailing)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .frame(width: size * 3.8, alignment: .trailing)
+    }
+}
+
+private func gist(_ state: ThreadActivityAttributes.ContentState) -> String {
+    state.liveSummary.isEmpty ? state.shortHeadline : state.liveSummary
+}
+
+private func firstName(_ name: String) -> String {
+    name.split(separator: " ").first.map(String.init) ?? "Call"
+}
+
+private func speakerInitials(_ name: String) -> String {
+    let parts = name.split(separator: " ").compactMap { $0.first }
+    if parts.count >= 2 {
+        return "\(parts[0])\(parts[1])".uppercased()
+    } else if let first = parts.first {
+        return String(first).uppercased()
+    }
+    return "TH"
+}
+
+// Same palette as the app's MomentTag so a moment reads the same colour everywhere.
 private func momentColor(_ type: String) -> Color {
     switch type.uppercased() {
-    case "OPPORTUNITY": return Color.blue
-    case "DEADLINE": return Color.red
-    case "RESOURCE": return Color.teal
-    case "DECISION": return Color.purple
-    default: return Color.orange
+    case "OPPORTUNITY": return Color(red: 0.0, green: 0.85, blue: 0.98)
+    case "DEADLINE": return Color(red: 0.98, green: 0.30, blue: 0.35)
+    case "RESOURCE": return Color(red: 0.18, green: 0.48, blue: 1.0)
+    case "REQUIREMENT": return Color(red: 0.52, green: 0.32, blue: 0.98)
+    case "EVENT": return Color(red: 1.0, green: 0.65, blue: 0.15)
+    case "DECISION": return Color(red: 0.85, green: 0.38, blue: 0.85)
+    default: return Color(red: 0.0, green: 0.85, blue: 0.98)
     }
-}
-
-private func formatClock(_ seconds: Int) -> String {
-    let m = seconds / 60
-    let s = seconds % 60
-    return String(format: "%02d:%02d", m, s)
 }

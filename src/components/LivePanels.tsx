@@ -19,7 +19,7 @@ import { PromptInput, PromptInputBody, PromptInputFooter, PromptInputSubmit, Pro
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { SARAH_DEMO_RECIPIENT } from "@/lib/demo-recipient";
+import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_ACTION_ID, SARAH_FOLLOW_UP_EMAIL } from "@/lib/demo-recipient";
 
 /* ---------- Left: Moments + Transcript ---------- */
 
@@ -46,11 +46,16 @@ function MomentCard({ moment }: { moment: Moment }) {
         className={cn("w-full rounded-r-lg border-l-2 bg-white/[0.03] p-3 text-left transition hover:bg-white/[0.06]", style.border)}
       >
         <div className="flex items-center justify-between gap-2">
-          <MomentBadge type={moment.type} />
-          <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{formatClock(moment.timeSec)}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-primary">
+              ⏱ {formatClock(moment.timeSec)}
+            </span>
+            <MomentBadge type={moment.type} />
+          </div>
+          <span className="text-[10px] text-primary/70">Hold 1s for Agent ✦</span>
         </div>
-        <p className="mt-1.5 text-xs leading-relaxed text-foreground/90">{moment.takeaway}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground">{moment.speaker} · {open ? "Less ▴" : "Why it matters ▾"}</p>
+        <p className="mt-1.5 text-xs font-semibold leading-relaxed text-foreground/95">{moment.takeaway}</p>
+        <p className="mt-1 text-[10px] text-muted-foreground">{moment.speaker} · {open ? "Less ▴" : "Details ▾"}</p>
         {open && (
           <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
             <p className="text-xs leading-relaxed text-muted-foreground">{moment.detail}</p>
@@ -97,8 +102,11 @@ export function MomentsPanel() {
   return (
     <section className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/5 p-4">
-        <h2 className="text-sm font-semibold text-foreground/85">Semantic Moments</h2>
-        <span className="meta-chip text-muted-foreground">{moments.length} detected</span>
+        <div>
+          <h2 className="text-sm font-semibold text-foreground/90">Meeting Notes & Timeline</h2>
+          <p className="text-[10px] text-primary/80">Minute-by-minute gist · Hold 1s or right-click to inspect with Agent</p>
+        </div>
+        <span className="meta-chip text-muted-foreground">{moments.length} notes</span>
       </div>
       <div className="flex flex-wrap gap-1 px-4 pt-3">
         {FILTERS.map((f) => {
@@ -195,7 +203,11 @@ function Equalizer() {
 
 function SlideQr({ url }: { url: string }) {
   const [src, setSrc] = useState("");
-  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  const href = /^https?:\/\//i.test(url)
+    ? url
+    : url.startsWith("/") && typeof window !== "undefined"
+      ? window.location.origin + url
+      : `https://${url}`;
   useEffect(() => {
     void QRCode.toDataURL(href, { margin: 1, width: 220, color: { dark: "#0b0f14", light: "#ffffff" } }).then(setSrc);
   }, [href]);
@@ -283,36 +295,24 @@ export function CenterColumn() {
 /* ---------- Right: Agent queue + chat ---------- */
 
 export function AgentQueuePanel() {
-  const { actions, executeAction } = useDemo();
+  const { actions, approveAction } = useDemo();
   const staged = actions.filter((a) => a.status === "staged");
   const [sendingId, setSendingId] = useState<string | null>(null);
 
   async function approve(a: (typeof actions)[number]) {
     if (sendingId) return;
-    if (a.id === "chat-c3b") {
+    if (a.id === SARAH_FOLLOW_UP_ACTION_ID) {
       setSendingId(a.id);
-      try {
-        const res = await fetch("/api/send-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: SARAH_DEMO_RECIPIENT,
-            subject: "Thank you for the Discovery Day session",
-            body: "Hi Sarah,\n\nThank you for sharing the internship opportunity at Discovery Day. I enjoyed learning about the team and look forward to applying.\n\nBest,\nSumon Mondal",
-          }),
-        });
-        const result = (await res.json()) as { ok?: boolean; error?: string; delivered?: string };
-        if (!res.ok || !result.ok) throw new Error(result.error ?? "Gmail could not send the email");
-        executeAction(a.id);
+      const result = await approveAction(a.id);
+      setSendingId(null);
+      if (result.ok) {
         toast.success(result.delivered === "inbox" ? `Sent and confirmed in ${SARAH_DEMO_RECIPIENT}` : `Sent to ${SARAH_DEMO_RECIPIENT}`);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Email could not be sent");
-      } finally {
-        setSendingId(null);
+      } else {
+        toast.error(result.error ?? "Email could not be sent");
       }
       return;
     }
-    executeAction(a.id);
+    await approveAction(a.id);
     if (a.link) window.open(a.link, "_blank", "noopener");
   }
 
@@ -341,8 +341,8 @@ export function AgentQueuePanel() {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium leading-snug">{a.label}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{a.detail}</p>
-              {a.id === "chat-c3b" && a.status === "staged" && (
-                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">To: {SARAH_DEMO_RECIPIENT} · Subject: Thank you for the Discovery Day session<br />“Hi Sarah, Thank you for sharing the internship opportunity at Discovery Day. I enjoyed learning about the team and look forward to applying. Best, Sumon Mondal”</p>
+              {a.id === SARAH_FOLLOW_UP_ACTION_ID && a.status === "staged" && (
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">To: {SARAH_DEMO_RECIPIENT} · Subject: {SARAH_FOLLOW_UP_EMAIL.subject}<br />“{SARAH_FOLLOW_UP_EMAIL.body.replace(/\n+/g, " ")}”</p>
               )}
               {a.status === "staged" && (
                 <Button
@@ -350,7 +350,7 @@ export function AgentQueuePanel() {
                   onClick={() => void approve(a)}
                   className="mt-2 rounded-lg bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground transition hover:bg-primary/85"
                 >
-                  {sendingId === a.id ? "Sending…" : a.id === "chat-c3b" ? "Approve & send email" : "Approve & Execute"}
+                  {sendingId === a.id ? "Sending…" : a.id === SARAH_FOLLOW_UP_ACTION_ID ? "Approve & send email" : "Approve & Execute"}
                 </Button>
               )}
               {a.status === "executed" && a.link && (

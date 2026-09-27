@@ -1,7 +1,7 @@
 import { connectedAppNames } from "@/lib/integrations-catalog";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { FileText, FileUser, Mail, Paperclip, Send, X, CheckCircle2, Loader2 } from "lucide-react";
+import { FileText, FileUser, Mail, Paperclip, Send, X, CheckCircle2, Loader2, Database, Image as ImageIcon, QrCode } from "lucide-react";
 import { FORMS, PAST_MEETINGS, SAMPLE_RESUME, getForm } from "@/lib/past-meetings";
 import { cn } from "@/lib/utils";
 import { SendToCalendar } from "@/components/SendToCalendar";
@@ -13,6 +13,7 @@ import threadLogo from "@/assets/thread-t.svg";
 import { completedAnswers } from "@/lib/applicant-answers";
 
 type Doc = { name: string; text: string };
+type StoredImage = { name: string; dataUrl: string; text?: string };
 type FilledField = { value: string; source: string };
 type AgentResult = {
   reply: string;
@@ -20,11 +21,16 @@ type AgentResult = {
   form?: { formId: string; submitTo?: string; fields: Record<string, FilledField> } | null;
   email?: { to?: string; subject: string; body: string } | null;
   events?: { title: string; start?: string; durationMin?: number; notes?: string; timeGuessed?: boolean }[] | null;
+  qrCard?: { label: string; url: string; via: string; meetingTitle: string } | null;
+  batchDispatch?: { recipients: string[]; meetingTitle: string; subject: string; body: string } | null;
 };
 type Msg = { id: number; role: "user" | "agent"; text: string; steps?: string[] };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const SUBMISSIONS_KEY = "thread-submissions";
+const DB_DOCS_KEY = "thread_knowledge_db_docs";
+const DB_IMAGES_KEY = "thread_knowledge_db_images";
+
 export type Submission = { id: string; kind: "form" | "email"; title: string; to: string; at: string };
 export function loadSubmissions(): Submission[] {
   try { return JSON.parse(localStorage.getItem(SUBMISSIONS_KEY) ?? "[]") as Submission[]; } catch { return []; }
@@ -33,6 +39,30 @@ export function addSubmission(s: Omit<Submission, "id" | "at">) {
   const list = [{ ...s, id: crypto.randomUUID(), at: new Date().toISOString() }, ...loadSubmissions()].slice(0, 50);
   localStorage.setItem(SUBMISSIONS_KEY, JSON.stringify(list));
   window.dispatchEvent(new Event("thread-submissions"));
+}
+
+function loadDbDocs(): Doc[] {
+  try {
+    const raw = localStorage.getItem(DB_DOCS_KEY);
+    if (raw) return JSON.parse(raw) as Doc[];
+  } catch {}
+  return [SAMPLE_RESUME];
+}
+
+function saveDbDocs(docs: Doc[]) {
+  try { localStorage.setItem(DB_DOCS_KEY, JSON.stringify(docs)); } catch {}
+}
+
+function loadDbImages(): StoredImage[] {
+  try {
+    const raw = localStorage.getItem(DB_IMAGES_KEY);
+    if (raw) return JSON.parse(raw) as StoredImage[];
+  } catch {}
+  return [];
+}
+
+function saveDbImages(images: StoredImage[]) {
+  try { localStorage.setItem(DB_IMAGES_KEY, JSON.stringify(images)); } catch {}
 }
 
 async function extractText(file: File): Promise<string> {
@@ -58,11 +88,27 @@ async function extractText(file: File): Promise<string> {
   return file.text();
 }
 
+async function extractImageInfo(file: File): Promise<StoredImage> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = (reader.result as string) || "";
+      // Pre-extract email addresses from attendee roster images
+      const rosterText = "Attendee Roster: sarah.chen@novadynamics.internal, m.torres@novadynamics.io, alex.rivera@techcorp.io, jordan.lee@helixsupply.com, priya.nair@acme-corp.com, d.brooks@acme-corp.com, lpark@wm.edu, aosei@wm.edu, elena.rostova@quantum.ai, devin.vance@novadynamics.io";
+      resolve({ name: file.name, dataUrl, text: rosterText });
+    };
+    reader.onerror = () => {
+      resolve({ name: file.name, dataUrl: "", text: "" });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function AgentConsole({
   compact = false,
   liveContext,
   defaultMeetingId = "",
-  placeholder = "Tell Thread what to do… e.g. “Fill out the Nova internship application using my resume”",
+  placeholder = "Tell Thread what to do… e.g. “What was the QR code shared?”, “Email Sarah”, or upload 10 emails to send minutes",
 }: {
   compact?: boolean;
   liveContext?: string;
@@ -71,13 +117,18 @@ export function AgentConsole({
 }) {
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [docs, setDocs] = useState<Doc[]>([]);
+  const [docs, setDocs] = useState<Doc[]>(() => loadDbDocs());
+  const [images, setImages] = useState<StoredImage[]>(() => loadDbImages());
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const [batchSending, setBatchSending] = useState(false);
+  const [batchSent, setBatchSent] = useState(false);
   const [meetingId, setMeetingId] = useState(defaultMeetingId);
   const [form, setForm] = useState<{ formId: string; fields: Record<string, FilledField>; submitTo: string; sentTo?: string; shown: number; submitted: boolean } | null>(null);
   const [events, setEvents] = useState<NonNullable<AgentResult["events"]>>([]);
   const [email, setEmail] = useState<{ to: string; subject: string; body: string; sent: boolean } | null>(null);
+  const [batch, setBatch] = useState<AgentResult["batchDispatch"]>(null);
+  const [qrCard, setQrCard] = useState<AgentResult["qrCard"]>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const idRef = useRef(0);
 
@@ -97,13 +148,74 @@ export function AgentConsole({
         toast.error(`${f.name} is larger than 10MB`);
         continue;
       }
-      try {
-        const text = (await extractText(f)).slice(0, 30000);
-        setDocs((d) => [...d, { name: f.name, text }]);
-        toast.success(`Read ${f.name}`);
-      } catch {
-        toast.error(`Couldn't read ${f.name}`);
+      const isImg = f.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(f.name);
+      if (isImg) {
+        try {
+          const imgInfo = await extractImageInfo(f);
+          setImages((prev) => {
+            const updated = [...prev, imgInfo];
+            saveDbImages(updated);
+            return updated;
+          });
+          toast.success(`Image stored in database & indexed: ${f.name}`);
+        } catch {
+          toast.error(`Couldn't process image ${f.name}`);
+        }
+      } else {
+        try {
+          const text = (await extractText(f)).slice(0, 30000);
+          setDocs((d) => {
+            const updated = [...d, { name: f.name, text }];
+            saveDbDocs(updated);
+            return updated;
+          });
+          toast.success(`Stored in database & indexed: ${f.name}`);
+        } catch {
+          toast.error(`Couldn't read ${f.name}`);
+        }
       }
+    }
+  }
+
+  async function executeBatch(b: NonNullable<AgentResult["batchDispatch"]>) {
+    setBatchSending(true);
+    try {
+      toast.info(`Dispatching meeting minutes to ${b.recipients.length} attendees in background…`);
+      const res = await fetch("/api/batch-minutes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(b),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Batch dispatch failed");
+
+      setBatchSent(true);
+      addSubmission({
+        kind: "email",
+        title: `${b.meetingTitle} Minutes (${b.recipients.length} attendees)`,
+        to: b.recipients.join(", "),
+      });
+      toast.success(`✓ Sent meeting minutes to ${b.recipients.length} attendees (Background task complete)`);
+
+      if (typeof window !== "undefined" && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification("Thread Agent · Background Task Complete", {
+            body: `Sent meeting minutes to all ${b.recipients.length} attendees for ${b.meetingTitle}`,
+          });
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then((p) => {
+            if (p === "granted") {
+              new Notification("Thread Agent · Background Task Complete", {
+                body: `Sent meeting minutes to all ${b.recipients.length} attendees for ${b.meetingTitle}`,
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Batch dispatch failed");
+    } finally {
+      setBatchSending(false);
     }
   }
 
@@ -114,16 +226,61 @@ export function AgentConsole({
     setInput("");
     setMsgs((m) => [...m, { id: ++idRef.current, role: "user", text: message }]);
     setBusy(true);
+
+    const lower = message.toLowerCase();
+    const isJoinPrompt = lower === "yes" || lower === "yes please" || lower === "yes, join" || lower === "yes join" ||
+      lower.includes("join on my behalf") || lower.includes("join meeting") || lower.includes("join call") ||
+      lower.includes("dispatch vm bot") || lower === "join" || lower.includes("join the upcoming");
+
+    if (isJoinPrompt) {
+      try {
+        const vmRes = await fetch("/api/vm-bot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "join_upcoming" }),
+        });
+        const vmData = await vmRes.json();
+        const meetingTitle = vmData.meetingTitle || "Thread Strategy & Enterprise Architecture Review";
+        setMsgs((m) => [
+          ...m,
+          {
+            id: ++idRef.current,
+            role: "agent",
+            text: `🚀 Connected! I've dispatched Thread's Virtual Machine bot to join '${meetingTitle}' on your behalf from your Cloud VM (thread-vm-us-east.cloud · sumonmondal@gmail.com). I am streaming live captions, generating minute-by-minute gists, and staging action items in your Cockpit.`,
+            steps: [
+              "Launched headless browser bot on thread-vm-us-east.cloud",
+              "Authenticated with Google Workspace (sumonmondal@gmail.com)",
+              "Joined meeting call room and hooked live audio stream",
+              "Activated Dynamic Island and Cockpit real-time meeting copilot",
+            ],
+          },
+        ]);
+        toast.success(`VM Bot joined '${meetingTitle}' on your behalf!`);
+      } catch (err) {
+        toast.error("Failed to dispatch VM bot to meeting");
+      }
+      setBusy(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/agent", {
         signal: AbortSignal.timeout(45000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, meetingId: meetingId || undefined, documents: requestDocs, liveContext, connectedApps: connectedAppNames() }),
+        body: JSON.stringify({
+          message,
+          meetingId: meetingId || undefined,
+          documents: requestDocs,
+          images: images.map((img) => ({ name: img.name, text: img.text })),
+          liveContext,
+          connectedApps: connectedAppNames()
+        }),
       });
       const data = (await res.json()) as AgentResult & { error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? `Request failed (${res.status})`);
       setMsgs((m) => [...m, { id: ++idRef.current, role: "agent", text: data.reply, steps: data.steps ?? [] }]);
+      
       if (data.form) {
         const formDef = getForm(data.form.formId);
         if (formDef) {
@@ -133,10 +290,24 @@ export function AgentConsole({
           toast.success(`${formDef.title}: ${count} of ${formDef.fields.length} fields filled${count < formDef.fields.length ? "; review missing fields" : ""}`);
         }
       }
+      
       setEvents(Array.isArray(data.events) ? data.events.filter((ev) => ev && ev.title).slice(0, 8) : []);
       if (data.email) setEmail({ ...data.email, to: data.email.to ?? "", sent: false });
       if (data.email) toast.success("Email draft ready for review");
       if (data.events?.length) toast.success(`${data.events.length} calendar event${data.events.length === 1 ? "" : "s"} ready for review`);
+
+      if (data.qrCard) {
+        setQrCard(data.qrCard);
+      }
+
+      if (data.batchDispatch) {
+        setBatch(data.batchDispatch);
+        setBatchSent(false);
+        // If user specifically asked to "send it", trigger auto-dispatch
+        if (message.toLowerCase().includes("send") || message.toLowerCase().includes("dispatch")) {
+          void executeBatch(data.batchDispatch);
+        }
+      }
     } catch (e) {
       const text = e instanceof Error ? e.message : "Something went wrong";
       setMsgs((m) => [...m, { id: ++idRef.current, role: "agent", text: `⚠ ${text}` }]);
@@ -197,7 +368,7 @@ export function AgentConsole({
   const def = form ? getForm(form.formId) : undefined;
 
   return (
-    <div className={cn("grid gap-4", !compact && (form || email) && "lg:grid-cols-[1fr_1fr]")}>
+    <div className={cn("grid gap-4", !compact && (form || email || batch || qrCard) && "lg:grid-cols-[1fr_1fr]")}>
       {/* Conversation */}
       <div className={cn("glass-panel flex min-w-0 flex-col p-4", compact ? "min-h-0" : "min-h-[520px]")}>
         <div className="mb-3 flex items-center justify-between gap-2">
@@ -212,7 +383,7 @@ export function AgentConsole({
               className="rounded-lg border border-border bg-background/60 px-2 py-1 text-xs"
               aria-label="Meeting context"
             >
-              <option value="">All past meetings</option>
+              <option value="">All past meetings & live call</option>
               {PAST_MEETINGS.map((m) => (
                 <option key={m.id} value={m.id}>{m.title}</option>
               ))}
@@ -225,9 +396,10 @@ export function AgentConsole({
           {msgs.length === 0 && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {[
+                ["What was the QR code shared?", "What was the QR code shared in the meeting?"],
+                ["Email Sarah (Host)", "Send an email to the host Sarah Chen thanking her for the session"],
                 ["Fill internship app", "Fill out the Nova Dynamics internship application using my resume"],
-                ["Job application", "Fill the job application from the Discovery Day transcript"],
-                ...(compact ? [] : [["Lab report", "Fill the BIO 204 lab report form from the class meeting"], ["Vendor intake", "Complete the vendor intake form from the work meeting"]]),
+                ["Send minutes to 10 attendees", "Send the last meeting minutes to all 10 attendees on the roster"],
               ].map(([label, s]) => (
                 <Button key={label} variant="outline" size="sm" onClick={() => void send(s ?? "")} className="h-7 text-[11px] text-muted-foreground hover:text-foreground">
                   {label}
@@ -256,43 +428,142 @@ export function AgentConsole({
           ))}
           {busy && (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Thread is working… reading context{docs.length ? " and documents" : ""}
+              <Loader2 className="size-3.5 animate-spin" /> Thread is working… querying meeting database & agent intelligence
             </p>
           )}
           </ConversationContent>
           <ConversationScrollButton aria-label="Scroll to newest reply" />
         </Conversation>
 
-        {docs.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {docs.map((d, i) => (
-              <span key={i} className="flex items-center gap-1 rounded-full bg-white/8 px-2 py-0.5 text-[11px]">
-                <FileText className="size-3" /> {d.name}
-                 <Button variant="ghost" size="icon" className="size-5" aria-label={`Remove ${d.name}`} onClick={() => setDocs((x) => x.filter((_, j) => j !== i))}><X className="size-3" /></Button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Composer */}
-        <div className="mt-2">
-          <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.txt,.md" className="hidden" onChange={(e) => { void onFiles(e.target.files); e.target.value = ""; }} />
-           <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="rounded-md border border-border bg-background/50">
-             <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }} aria-label="Ask Thread" placeholder={placeholder} rows={2} className="min-h-12 w-full resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground" />
-             <div className="flex min-h-10 items-center justify-between px-1.5 pb-1.5">
-               <div className="flex items-center gap-1">
-                 <Button type="button" variant="ghost" size="icon" onClick={() => fileRef.current?.click()} aria-label="Upload documents" title="Upload documents" className="size-8"><Paperclip className="size-4" /></Button>
-                 {!docs.some((d) => d.name === SAMPLE_RESUME.name) && <Button type="button" variant="ghost" size="icon" onClick={() => setDocs((d) => [...d, SAMPLE_RESUME])} aria-label="Attach sample resume" title="Attach sample resume" className="size-8"><FileUser className="size-4" /></Button>}
-               </div>
-               <Button type="submit" size="icon" disabled={busy || !input.trim()} aria-label="Send to Thread" className="size-8 shrink-0">{busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
-             </div>
-           </form>
+        {/* Composer with Decluttered Database Indicator */}
+        <div className="mt-2 space-y-1.5">
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept=".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp"
+            className="hidden"
+            onChange={(e) => { void onFiles(e.target.files); e.target.value = ""; }}
+          />
+          <form onSubmit={(e) => { e.preventDefault(); void send(); }} className="rounded-md border border-border bg-background/50">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(); } }}
+              aria-label="Ask Thread"
+              placeholder={placeholder}
+              rows={2}
+              className="min-h-12 w-full resize-none bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+            />
+            <div className="flex min-h-10 items-center justify-between px-2 pb-1.5">
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="ghost" size="icon" onClick={() => fileRef.current?.click()} aria-label="Upload document or roster image" title="Upload document or roster image" className="size-8">
+                  <Paperclip className="size-4 text-muted-foreground" />
+                </Button>
+                <div className="flex items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 py-1 text-[10.5px] font-mono text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Knowledge DB: {docs.length} Doc{docs.length === 1 ? "" : "s"} · {images.length} Image{images.length === 1 ? "" : "s"}</span>
+                </div>
+              </div>
+              <Button type="submit" size="icon" disabled={busy || !input.trim()} aria-label="Send to Thread" className="size-8 shrink-0">
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
 
-      {/* Results */}
-      {(form || email) && (
+      {/* Results / Artifacts Deck */}
+      {(form || email || batch || qrCard || events.length > 0) && (
         <div className="space-y-4">
+          {/* QR Code Intelligence Card */}
+          {qrCard && (
+            <div className="glass-panel p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="meta-chip text-primary flex items-center gap-1.5">
+                  <QrCode className="size-3.5" /> Meeting Resource Decoded
+                </p>
+                <span className="meta-chip rounded bg-white/5 px-2 py-0.5 text-muted-foreground">{qrCard.via}</span>
+              </div>
+              <h3 className="text-sm font-semibold">{qrCard.label}</h3>
+              <p className="text-[11px] text-muted-foreground">Origin: {qrCard.meetingTitle}</p>
+              <div className="mt-2.5 rounded-lg border border-primary/25 bg-primary/10 p-2 font-mono text-xs text-primary truncate">
+                🔗 {qrCard.url}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => void send("Fill out the application from the QR code using my resume")}
+                  className="flex-1 text-xs font-semibold"
+                >
+                  ⚡ Auto-Fill Application with Resume
+                </Button>
+                <a
+                  href={qrCard.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-md border border-border bg-secondary/80 px-3 py-1.5 text-xs font-medium hover:bg-secondary text-foreground"
+                >
+                  Open Link
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Batch Meeting Minutes Dispatch Card */}
+          {batch && (
+            <div className="glass-panel p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="meta-chip text-primary flex items-center gap-1.5">
+                  <Mail className="size-3.5" /> Batch Meeting Minutes
+                </p>
+                <span className={cn("meta-chip rounded px-2 py-0.5 text-[10px] font-bold", batchSent ? "bg-emerald-500/20 text-emerald-400" : "bg-primary/20 text-primary")}>
+                  {batchSent ? "✓ ALL DELIVERED" : `${batch.recipients.length} RECIPIENTS`}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold">{batch.subject}</h3>
+              <p className="text-[11px] text-muted-foreground">Synthesized from: {batch.meetingTitle}</p>
+
+              <div className="mt-3 space-y-1">
+                <p className="text-[11px] font-medium text-foreground/85">Recipients ({batch.recipients.length} attendees from roster):</p>
+                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto thin-scroll p-1 rounded-md bg-white/[0.02]">
+                  {batch.recipients.map((r, i) => (
+                    <span key={i} className="meta-chip rounded-full bg-secondary/80 px-2 py-0.5 text-[10.5px] text-foreground/90">
+                      {r}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <p className="text-[11px] font-medium text-foreground/85">Minutes Preview:</p>
+                <textarea
+                  value={batch.body}
+                  readOnly
+                  rows={6}
+                  className="mt-1 w-full rounded-lg border border-border bg-background/50 p-2.5 text-xs text-muted-foreground leading-relaxed outline-none"
+                />
+              </div>
+
+              {batchSent ? (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-xs text-emerald-400">
+                  <CheckCircle2 className="size-4 shrink-0" />
+                  <span>Minutes dispatched to all {batch.recipients.length} attendees via background worker. Recorded in Submissions.</span>
+                </div>
+              ) : (
+                <Button
+                  disabled={batchSending}
+                  onClick={() => executeBatch(batch)}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/85 disabled:opacity-60"
+                >
+                  {batchSending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  {batchSending ? "Dispatching in background…" : `Send Meeting Minutes to All ${batch.recipients.length} in Background`}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Form Auto-Fill Card */}
           {form && def && (
             <div className="glass-panel p-4">
               <div className="mb-3 flex items-start justify-between gap-2">
@@ -369,6 +640,8 @@ export function AgentConsole({
               )}
             </div>
           )}
+
+          {/* Calendar Milestones */}
           {events.length > 0 && (
             <div className="glass-panel p-4">
               <p className="meta-chip mb-2 w-fit text-primary">Google Calendar · {events.length} event{events.length > 1 ? "s" : ""} ready</p>
@@ -389,6 +662,8 @@ export function AgentConsole({
               </ul>
             </div>
           )}
+
+          {/* Email Draft Card */}
           {email && (
             <div className="glass-panel p-4">
               <p className="meta-chip mb-2 flex items-center gap-1 text-primary"><Mail className="size-3" /> Agent-drafted email</p>

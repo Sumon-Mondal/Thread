@@ -175,6 +175,8 @@ public class ThreadSessionManager: ObservableObject {
     // Master Demo Mode Toggle (Controlled strictly via Settings)
     @Published public var isDemoMode: Bool = false {
         didSet {
+            // didSet fires on every assignment; re-running setup would wipe approvals and the clock.
+            guard isDemoMode != oldValue else { return }
             if isDemoMode {
                 setupDemoMode()
             } else {
@@ -187,6 +189,7 @@ public class ThreadSessionManager: ObservableObject {
     @Published public var isDrivingMode: Bool = UserDefaults.standard.bool(forKey: "Thread_isDrivingMode") {
         didSet {
             UserDefaults.standard.set(isDrivingMode, forKey: "Thread_isDrivingMode")
+            refreshIdleTimer()
             if isDrivingMode {
                 showNotification(text: "🚗 Hands-Free Driving Mode Active · Voice Announced")
                 speakAloud("Driving copilot active. Live meeting polls, forms, and deadlines will be announced aloud.")
@@ -226,11 +229,22 @@ public class ThreadSessionManager: ObservableObject {
     @Published public var elapsed: Int = 0
     @Published public var meetingStartDate: Date = Date()
     @Published public var isDemoRunning: Bool = false
+    /// Clock stopped mid-meeting; the cockpit keeps showing the meeting as it was.
+    @Published public var isDemoPaused: Bool = false
+    /// Script finished or ended by the presenter; captured moments and staged actions stay reviewable.
+    @Published public var isDemoEnded: Bool = false
     @Published public var isConnectedToMeeting: Bool = false
+
+    public static let demoScriptLength = 330
 
     // Strictly true ONLY when a meeting is actively in progress
     public var isMeetingActive: Bool {
-        return (isDemoMode && isDemoRunning) || isConnectedToMeeting || SpeechRecognizerManager.shared.isRecording
+        return (isDemoMode && (isDemoRunning || isDemoPaused)) || isConnectedToMeeting || SpeechRecognizerManager.shared.isRecording
+    }
+
+    /// True from the moment a demo starts until it is reset or demo mode is turned off.
+    public var isDemoTimelineShown: Bool {
+        isDemoMode && (isDemoRunning || isDemoPaused || isDemoEnded)
     }
 
     @Published public var shortHeadline: String = "Meeting Standby"
@@ -258,23 +272,69 @@ public class ThreadSessionManager: ObservableObject {
     @Published public var allMoments: [DemoMoment] = []
     @Published public var actions: [DemoAction] = []
     @Published public var allTranscript: [DemoTranscript] = []
+    @Published public var lastSpokenTranscriptId: String? = nil
+    @Published public var hasShownDemoPoll: Bool = false
 
     // Backend endpoint
-    @Published public var serverUrl: String = "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app"
+    public static let cloudServerUrl = "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app"
+    /// The web app's dev server (`npm run dev -- --host 0.0.0.0`) on the Mac, reachable on the same Wi-Fi.
+    public static let macServerUrl = "http://10.11.6.47:8080"
+
+    @Published public var serverUrl: String = UserDefaults.standard.string(forKey: "Thread_serverUrl") ?? ThreadSessionManager.cloudServerUrl {
+        didSet { UserDefaults.standard.set(serverUrl, forKey: "Thread_serverUrl") }
+    }
     private var demoTimer: Timer?
     private var liveActivity: Any? = nil
+    /// nil until the agent is first asked; false when answers come from the on-device fallback.
+    @Published public var agentServerReachable: Bool? = nil
+    private var lastAnnouncedMomentId: String?
+    private var lastPushedActivityState: ThreadActivityAttributes.ContentState?
+    private var demoBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
     public init() {
-        setupRealLifeMode()
+        if UserDefaults.standard.bool(forKey: "Thread_startDemo") {
+            startDemoMeeting()
+        } else {
+            setupRealLifeMode()
+        }
         startSync()
+        observeAppLifecycle()
     }
 
     // Filtered moments: when demo playback is running, stream chronologically; when paused/standby, show all recorded minute notes so user can explore any minute (e.g. 5:11)
     public var visibleMoments: [DemoMoment] {
-        if isDemoMode && isDemoRunning {
+        if isDemoTimelineShown {
             return allMoments.filter { $0.timeSec <= max(elapsed, 18) }
         }
         return allMoments
+    }
+
+    /// Scripted demo actions surface when they are spoken, not all at once when the meeting starts.
+    public var visibleActions: [DemoAction] {
+        if isDemoTimelineShown {
+            return actions.filter { $0.timeSec <= max(elapsed, 18) }
+        }
+        return actions
+    }
+
+    /// Shared by the quick bar, driving deck, voice commands and agent so "just send it" and
+    /// "schedule it" find the same action everywhere, whether scripted or agent-drafted.
+    public var nextStagedEmailAction: DemoAction? {
+        visibleActions.first { $0.status == "staged" && Self.isEmailAction($0) }
+    }
+
+    public var nextStagedCalendarAction: DemoAction? {
+        visibleActions.first { $0.status == "staged" && Self.isCalendarAction($0) }
+    }
+
+    public static func isEmailAction(_ action: DemoAction) -> Bool {
+        let text = "\(action.label) \(action.link ?? "")".lowercased()
+        return action.id.hasPrefix("email-") || text.contains("email") || text.contains("✉️") || text.contains("mailto:")
+    }
+
+    public static func isCalendarAction(_ action: DemoAction) -> Bool {
+        let text = "\(action.label) \(action.detail ?? "")".lowercased()
+        return action.id.hasPrefix("cal-") || text.contains("calendar") || text.contains("reminder") || text.contains("rsvp") || text.contains("📅")
     }
 
     public var latestMoment: DemoMoment? {
@@ -283,7 +343,7 @@ public class ThreadSessionManager: ObservableObject {
 
     // Filtered transcript up to elapsed time
     public var visibleTranscript: [DemoTranscript] {
-        if isDemoMode && isDemoRunning {
+        if isDemoTimelineShown {
             return allTranscript.filter { $0.timeSec <= max(elapsed, 18) }
         }
         return allTranscript
@@ -294,6 +354,9 @@ public class ThreadSessionManager: ObservableObject {
     public func setupRealLifeMode() {
         demoTimer?.invalidate()
         isDemoRunning = false
+        isDemoPaused = false
+        isDemoEnded = false
+        lastAnnouncedMomentId = nil
         meetingTitle = "Real-Time Meeting Intelligence"
         shortHeadline = "Meeting Standby"
         liveSummary = ""
@@ -315,6 +378,12 @@ public class ThreadSessionManager: ObservableObject {
     public func setupDemoMode() {
         demoTimer?.invalidate()
         isDemoRunning = false
+        isDemoPaused = false
+        isDemoEnded = false
+        lastAnnouncedMomentId = nil
+        lastSpokenTranscriptId = nil
+        hasShownDemoPoll = false
+        activePoll = nil
         meetingTitle = "Nova Dynamics — Discovery Day"
         elapsed = 0
         meetingStartDate = Date()
@@ -378,10 +447,11 @@ public class ThreadSessionManager: ObservableObject {
         ]
 
         actions = [
-            DemoAction(id: "a1", label: "Save application portal link", status: "executed", timeSec: 36, detail: "Extracted via Gemini Vision from slide QR", link: "https://novadynamics.io/careers/apply-2027"),
-            DemoAction(id: "a2", label: "Send follow-up email to Sarah Chen", status: "staged", timeSec: 45, detail: "Attaches portfolio link & references Discovery Day session", link: nil),
+            DemoAction(id: "form-swe2027", label: "Auto-fill Nova Dynamics SWE Application", status: "staged", timeSec: 36, detail: "Pre-fills 8 fields from your resume via Gemini Agent", link: "https://novadynamics.io/careers/apply-2027"),
+            DemoAction(id: "a2", label: "Send follow-up email to Sarah Chen", status: "staged", timeSec: 45, detail: "Attaches portfolio link & references Discovery Day session", link: "mailto:sarah.chen@novadynamics.internal"),
             DemoAction(id: "a3", label: "Stage deadline reminder — Oct 18", status: "staged", timeSec: 58, detail: "Google Calendar & iOS Reminders sync", link: nil),
-            DemoAction(id: "a4", label: "RSVP: Nova Dynamics Intern Q&A Panel", status: "staged", timeSec: 90, detail: "Next Thursday 4 PM ET with Priya Nair", link: nil),
+            DemoAction(id: "form-qna", label: "Auto-fill RSVP: Engineering Q&A Panel", status: "staged", timeSec: 90, detail: "Registers for Thursday 4 PM session with Priya Nair", link: "https://novadynamics.io/events/qna-rsvp"),
+            DemoAction(id: "form-sustainability", label: "Auto-fill Campus Recycling Committee Signup", status: "staged", timeSec: 105, detail: "Registers for Jordan Lee's smart recycling initiative", link: "https://helixsupply.com/sustainability/smart-bins"),
             DemoAction(id: "a5", label: "Draft email to Jordan Lee re: Smart Bins", status: "staged", timeSec: 311, detail: "Campus recycling initiative cutoff Nov 15", link: "mailto:jordan.lee@helixsupply.com")
         ]
 
@@ -622,6 +692,10 @@ public class ThreadSessionManager: ObservableObject {
 
     /// Leaves the active Zoom/Meet session via the VM
     public func leaveMeetingViaVM() {
+        if isDemoMode && (isDemoRunning || isDemoPaused) {
+            endDemoMeeting()
+            return
+        }
         stopVmMeetingBot()
         showNotification(text: "👋 Left the meeting via Thread")
     }
@@ -693,18 +767,16 @@ public class ThreadSessionManager: ObservableObject {
             return
         }
         if lower.contains("just send it") || lower == "send it" || lower.contains("send email") || lower.contains("dispatch") {
-            if let stagedEmail = actions.first(where: { $0.status == "staged" && ($0.label.contains("Email") || $0.label.contains("✉️")) }) {
+            if let stagedEmail = nextStagedEmailAction {
                 approveAction(id: stagedEmail.id)
-                showNotification(text: "🚀 Dispatched! Follow-up email sent via Gmail.")
-                speakAloud("Follow-up email dispatched via Gmail.")
+                speakAloud("Approved: \(stagedEmail.label).")
                 return
             }
         }
         if lower.contains("add to calendar") || lower.contains("schedule it") || lower.contains("schedule deadline") {
-            if let stagedCal = actions.first(where: { $0.status == "staged" && ($0.label.contains("Calendar") || $0.label.contains("📅")) }) {
+            if let stagedCal = nextStagedCalendarAction {
                 approveAction(id: stagedCal.id)
-                showNotification(text: "📅 Scheduled! Added to Google Calendar.")
-                speakAloud("Event scheduled on your Google Calendar.")
+                speakAloud("Approved: \(stagedCal.label).")
                 return
             }
         }
@@ -1069,6 +1141,12 @@ public class ThreadSessionManager: ObservableObject {
     // MARK: - Conversational Agent Executions
 
     public func executeDirectEmail(to: String, subject: String, body: String) async -> Bool {
+        // Demo contacts are fictional, so demo mode never sends real mail.
+        if isDemoMode {
+            showNotification(text: "✓ Email to \(to) sent (demo)")
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            return true
+        }
         guard let url = URL(string: "\(serverUrl)/api/send-email") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -1082,23 +1160,22 @@ public class ThreadSessionManager: ObservableObject {
             req.httpBody = try JSONSerialization.data(withJSONObject: payload)
             let (_, resp) = try await URLSession.shared.data(for: req)
             if let httpResp = resp as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
-                showNotification(text: "🚀 Email Sent Successfully to \(to)!")
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-                return true
-            } else {
-                showNotification(text: "✓ Email Approved & Queued for Delivery to \(to)")
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
+                showNotification(text: "✓ Email sent to \(to)")
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
                 return true
             }
-        } catch {
-            showNotification(text: "✓ Email Queued to \(to)")
-            return true
-        }
+        } catch {}
+        showNotification(text: "⚠️ Couldn't send to \(to) — still in your queue")
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        return false
     }
 
     public func executeDirectCalendarEvent(title: String, start: String, durationMin: Int = 30, notes: String = "") async -> Bool {
+        if isDemoMode {
+            showNotification(text: "📅 Added to calendar (demo): \(title)")
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            return true
+        }
         guard let url = URL(string: "\(serverUrl)/api/calendar") else { return false }
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
@@ -1113,20 +1190,14 @@ public class ThreadSessionManager: ObservableObject {
             req.httpBody = try JSONSerialization.data(withJSONObject: payload)
             let (_, resp) = try await URLSession.shared.data(for: req)
             if let httpResp = resp as? HTTPURLResponse, (200...299).contains(httpResp.statusCode) {
-                showNotification(text: "📅 Event Scheduled in Google Calendar: \(title)!")
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
-                return true
-            } else {
-                showNotification(text: "📅 Event Approved: \(title)")
-                let generator = UINotificationFeedbackGenerator()
-                generator.notificationOccurred(.success)
+                showNotification(text: "📅 Added to Google Calendar: \(title)")
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
                 return true
             }
-        } catch {
-            showNotification(text: "📅 Event Staged: \(title)")
-            return true
-        }
+        } catch {}
+        showNotification(text: "⚠️ Couldn't add \(title) — still in your queue")
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        return false
     }
 
     // MARK: - Minute-by-Minute Agentic Moment Inspector
@@ -1340,16 +1411,17 @@ public class ThreadSessionManager: ObservableObject {
 
     public func sendAgentMessage(prompt: String, resumeText: String? = nil) async -> (reply: String, steps: [String], email: AgentEmailPayload?, events: [AgentCalendarPayload]?, form: AgentFormPayload?, qrCard: AgentQrPayload?, batch: AgentBatchPayload?) {
         guard let url = URL(string: "\(serverUrl)/api/agent") else {
-            return localAgentFallback(prompt: prompt)
+            return stagedFallback(prompt: prompt)
         }
 
-        var liveContext = "Active meeting transcript:\n"
-        for t in allTranscript.suffix(10) {
+        // Only what has been said so far — during the demo, future script lines stay unknown to the agent.
+        var liveContext = "Meeting: \(meetingTitle) (\(meetingPlatform)), at \(Self.clock(elapsed)).\nActive meeting transcript:\n"
+        for t in visibleTranscript.suffix(10) {
             liveContext += "\(t.speaker): \(t.text)\n"
         }
-        if !actions.isEmpty {
+        if !visibleActions.isEmpty {
             liveContext += "\nPending Actions:\n"
-            for a in actions {
+            for a in visibleActions {
                 liveContext += "- \(a.label) (Status: \(a.status))\n"
             }
         }
@@ -1376,12 +1448,15 @@ public class ThreadSessionManager: ObservableObject {
 
         do {
             req.httpBody = try JSONSerialization.data(withJSONObject: body)
-            let (data, _) = try await URLSession.shared.data(for: req)
-            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return localAgentFallback(prompt: prompt)
+            let (data, response) = try await URLSession.shared.data(for: req)
+            let ok = (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? false
+            guard ok,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let reply = json["reply"] as? String else {
+                return stagedFallback(prompt: prompt)
             }
+            agentServerReachable = true
 
-            let reply = json["reply"] as? String ?? "Task processed."
             let steps = json["steps"] as? [String] ?? []
 
             var emailPayload: AgentEmailPayload? = nil
@@ -1390,51 +1465,19 @@ public class ThreadSessionManager: ObservableObject {
                let subject = emailDict["subject"] as? String,
                let emailBody = emailDict["body"] as? String {
                 emailPayload = AgentEmailPayload(to: to, subject: subject, body: emailBody)
-
-                if !actions.contains(where: { $0.label.contains(to) }) {
-                    let action = DemoAction(
-                        id: "email-\(UUID().uuidString.prefix(6))",
-                        label: "✉️ Send Email to \(to)",
-                        status: "staged",
-                        timeSec: elapsed,
-                        detail: "Subject: \(subject)",
-                        link: "mailto:\(to)"
-                    )
-                    actions.insert(action, at: 0)
-                    updateLiveActivity()
-                }
             }
 
             var eventsPayload: [AgentCalendarPayload]? = nil
             if let eventsArr = json["events"] as? [[String: Any]] {
-                var list: [AgentCalendarPayload] = []
-                for ev in eventsArr {
-                    if let title = ev["title"] as? String, let start = ev["start"] as? String {
-                        list.append(AgentCalendarPayload(
-                            title: title,
-                            start: start,
-                            durationMin: ev["durationMin"] as? Int,
-                            notes: ev["notes"] as? String
-                        ))
-
-                        if !actions.contains(where: { $0.label.contains(title) }) {
-                            let action = DemoAction(
-                                id: "cal-\(UUID().uuidString.prefix(6))",
-                                label: "📅 Add to Calendar: \(title)",
-                                status: "staged",
-                                timeSec: elapsed,
-                                detail: "Date: \(start)",
-                                link: nil
-                            )
-                            actions.insert(action, at: 0)
-                            updateLiveActivity()
-                        }
-                    }
+                let list = eventsArr.compactMap { ev -> AgentCalendarPayload? in
+                    guard let title = ev["title"] as? String, let start = ev["start"] as? String else { return nil }
+                    return AgentCalendarPayload(title: title, start: start, durationMin: ev["durationMin"] as? Int, notes: ev["notes"] as? String)
                 }
                 if !list.isEmpty {
                     eventsPayload = list
                 }
             }
+            stageAgentActions(email: emailPayload, events: eventsPayload)
 
             var formPayload: AgentFormPayload? = nil
             if let formDict = json["form"] as? [String: Any],
@@ -1484,20 +1527,126 @@ public class ThreadSessionManager: ObservableObject {
 
             return (reply, steps, emailPayload, eventsPayload, formPayload, qrPayload, batchPayload)
         } catch {
-            return localAgentFallback(prompt: prompt)
+            return stagedFallback(prompt: prompt)
         }
     }
 
+    /// The queue item that already covers an email to this person (by address or first name).
+    public func queuedEmailAction(to address: String) -> DemoAction? {
+        let firstName = address.split(separator: "@").first?.split(separator: ".").first.map { String($0).lowercased() } ?? ""
+        return visibleActions.first { action in
+            Self.isEmailAction(action) && (action.label.contains(address) || (!firstName.isEmpty && action.label.lowercased().contains(firstName)))
+        }
+    }
+
+    /// The queue item that already covers this event (same title, or the same deadline / Q&A panel).
+    public func queuedCalendarAction(titled title: String) -> DemoAction? {
+        let lowered = title.lowercased()
+        let keywords = ["deadline", "q&a", "panel"].filter { lowered.contains($0) }
+        return visibleActions.first { action in
+            let label = action.label.lowercased()
+            return Self.isCalendarAction(action) && (label.contains(lowered) || keywords.contains { label.contains($0) })
+        }
+    }
+
+    /// Called after the agent sends an email or adds an event, so only the matching queue item is ticked off.
+    public func completeQueuedAction(emailTo address: String) {
+        guard let match = queuedEmailAction(to: address),
+              let idx = actions.firstIndex(where: { $0.id == match.id }) else { return }
+        actions[idx].status = "executed"
+        updateLiveActivity()
+    }
+
+    public func completeQueuedAction(eventTitled title: String) {
+        guard let match = queuedCalendarAction(titled: title),
+              let idx = actions.firstIndex(where: { $0.id == match.id }) else { return }
+        actions[idx].status = "executed"
+        updateLiveActivity()
+    }
+
+    /// Puts agent-drafted emails and events into the action queue, reusing a queue item that
+    /// already covers the same person or deadline instead of adding a duplicate.
+    private func stageAgentActions(email: AgentEmailPayload?, events: [AgentCalendarPayload]?) {
+        if let email = email, queuedEmailAction(to: email.to) == nil {
+            actions.insert(DemoAction(
+                id: "email-\(UUID().uuidString.prefix(6))",
+                label: "✉️ Send Email to \(email.to)",
+                status: "staged",
+                timeSec: elapsed,
+                detail: "Subject: \(email.subject)",
+                link: "mailto:\(email.to)"
+            ), at: 0)
+        }
+        for event in events ?? [] where queuedCalendarAction(titled: event.title) == nil {
+            actions.insert(DemoAction(
+                id: "cal-\(UUID().uuidString.prefix(6))",
+                label: "📅 Add to Calendar: \(event.title)",
+                status: "staged",
+                timeSec: elapsed,
+                detail: "Date: \(event.start)",
+                link: nil
+            ), at: 0)
+        }
+        updateLiveActivity()
+    }
+
+    private func stagedFallback(prompt: String) -> (reply: String, steps: [String], email: AgentEmailPayload?, events: [AgentCalendarPayload]?, form: AgentFormPayload?, qrCard: AgentQrPayload?, batch: AgentBatchPayload?) {
+        agentServerReachable = false
+        let result = localAgentFallback(prompt: prompt)
+        stageAgentActions(email: result.email, events: result.events)
+        return result
+    }
+
+    /// Answers from what has been said so far, using the same facts the demo script shows on screen.
     private func localAgentFallback(prompt: String) -> (reply: String, steps: [String], email: AgentEmailPayload?, events: [AgentCalendarPayload]?, form: AgentFormPayload?, qrCard: AgentQrPayload?, batch: AgentBatchPayload?) {
         let lower = prompt.lowercased()
+        let said = Set(visibleMoments.map(\.id))
+        let portal = "https://novadynamics.io/careers/apply-2027"
 
-        if lower.contains("qr") || lower.contains("link") {
-            let qr = AgentQrPayload(label: "Nova Dynamics SWE Application Portal", url: "/apply/internship-app", via: "Slide QR Code (00:42)", meetingTitle: "Nova Dynamics — Discovery Day")
+        if lower.contains("qr") || lower.contains("link") || lower.contains("portal") {
+            guard said.contains("m2") else {
+                return ("No link or QR code has been shared yet. I'll capture it the moment it appears on screen or in chat.", ["Checked screen share and chat"], nil, nil, nil, nil, nil)
+            }
+            let qr = AgentQrPayload(label: "Nova Dynamics SWE Application Portal", url: portal, via: "Slide QR code (00:36)", meetingTitle: meetingTitle)
             return (
-                "During the Discovery Day meeting, Sarah Chen shared a QR code on her slide linking to the Summer Engineering Internship application portal (/apply/internship-app). Michael Torres also shared a direct link in the meeting chat. Both are recorded in meeting memory.",
-                ["Retrieved meeting memory for 'discovery-day'", "Decoded slide QR code: /apply/internship-app", "Mapped to candidate resume profile"],
+                "Michael Torres shared the application portal as a QR code on his slide at 0:36: \(portal). The portal has profile pre-fill, a statement of interest and an optional portfolio link.",
+                ["Decoded the QR code on Michael's slide", "Verified the link against meeting chat"],
                 nil, nil, nil, qr, nil
             )
+        }
+
+        if lower.contains("jordan") || lower.contains("recycl") || lower.contains("trash") || lower.contains("bins") {
+            guard said.contains("m7") else {
+                return ("Nobody has mentioned that yet in this meeting.", ["Checked the meeting so far"], nil, nil, nil, nil, nil)
+            }
+            let email = AgentEmailPayload(
+                to: "jordan.lee@helixsupply.com",
+                subject: "Joining the campus recycling initiative",
+                body: "Hi Jordan,\n\nMichael Torres mentioned at Nova Dynamics Discovery Day that you're leading the campus trash and aluminum can recycling initiative before November 15. I'd like to help.\n\nBest regards,\nSumon Mondal"
+            )
+            return ("Michael said Jordan Lee is leading the campus recycling initiative, with a November 15 target. I drafted a note to Jordan offering to help.", ["Found Jordan Lee's contact from 5:11", "Drafted an email for your approval"], email, nil, nil, nil, nil)
+        }
+
+        if lower.contains("q&a") || lower.contains("panel") || lower.contains("rsvp") {
+            guard said.contains("m5") else {
+                return ("No event has been announced yet.", ["Checked the meeting so far"], nil, nil, nil, nil, nil)
+            }
+            let event = AgentCalendarPayload(title: "Nova Dynamics engineering Q&A panel", start: Self.nextThursday4pmISO(), durationMin: 60, notes: "Hosted by Priya Nair with last summer's interns. Attending boosts referral weighting.")
+            return ("Priya Nair announced an engineering Q&A panel next Thursday at 4 PM Eastern. I prepared the calendar event.", ["Parsed 'next Thursday at 4 PM Eastern'", "Prepared a calendar event"], nil, [event], nil, nil, nil)
+        }
+
+        if lower.contains("deadline") || lower.contains("calendar") || lower.contains("remind") || (lower.contains("when") && lower.contains("close")) {
+            guard said.contains("m3") else {
+                return ("No deadline has been announced yet. I'll stage a reminder as soon as one is.", ["Checked the meeting so far"], nil, nil, nil, nil, nil)
+            }
+            let event = AgentCalendarPayload(title: "Nova Dynamics internship application deadline", start: "2026-10-18T23:59:00", durationMin: 30, notes: "Sarah Chen: applications close firmly on October 18 at 11:59 PM Eastern. No extensions.")
+            return ("Applications close October 18 at 11:59 PM Eastern, and Sarah said there are no extensions. I prepared the calendar reminder.", ["Found the deadline Sarah announced at 0:58", "Prepared a calendar reminder"], nil, [event], nil, nil, nil)
+        }
+
+        if lower.contains("summar") || lower.contains("recap") || lower.contains("catch me up") || lower.contains("what happened") {
+            let points = visibleMoments.map { "• \(Self.clock($0.timeSec)) \($0.speaker): \($0.takeaway)" }
+            let reply = points.isEmpty ? "Nothing notable has been said yet." : "Here's the meeting so far:\n" + points.joined(separator: "\n")
+            return (reply, ["Summarized \(points.count) moments"], nil, nil, nil, nil, nil)
         }
 
         if lower.contains("minutes") || lower.contains("10 email") || lower.contains("roster") || lower.contains("send to all") {
@@ -1510,7 +1659,7 @@ public class ThreadSessionManager: ObservableObject {
                 recipients: recipients,
                 meetingTitle: "Nova Dynamics — Internship Discovery Day",
                 subject: "Meeting Minutes & Key Decisions — Nova Dynamics Discovery Day",
-                body: "Hi Team,\n\nHere are the synthesized meeting minutes from our recent Discovery Day session:\n• Applications open today for Summer 2027 SWE Internship\n• Cutoff Deadline: October 18, 2026\n• Application Portal: /apply/internship-app\n\nBest regards,\nSumon Mondal"
+                body: "Hi Team,\n\nHere are the minutes from Nova Dynamics Discovery Day:\n• Summer 2027 SWE internship applications are open: paid 12-week roles across Platform, Infrastructure and Applied AI\n• Applications close October 18 at 11:59 PM ET, no extensions\n• Application portal: \(portal)\n• Engineering Q&A panel next Thursday at 4 PM ET\n• Referral applications get priority review\n\nBest regards,\nSumon Mondal"
             )
             return (
                 "I've indexed the attendee roster into the knowledge database, extracted all 10 email addresses, and prepared the synthesized meeting minutes from 'Nova Dynamics — Discovery Day'. A background batch dispatch job has been queued.",
@@ -1519,16 +1668,39 @@ public class ThreadSessionManager: ObservableObject {
             )
         }
 
-        if lower.contains("host") || lower.contains("sarah") {
-            let email = AgentEmailPayload(to: "sarah.chen@novadynamics.internal", subject: "Discovery Day Follow-up — Summer 2027 SWE Internship (Sumon Mondal)", body: "Hi Sarah,\n\nThank you for the inspiring session at Discovery Day today. I really enjoyed your overview of Nova Dynamics' distributed systems architecture and quantum computing roadmap.\n\nBest regards,\nSumon Mondal")
+        if lower.contains("host") || lower.contains("sarah") || lower.contains("follow") || lower.contains("email") {
+            let email = AgentEmailPayload(
+                to: "sarah.chen@novadynamics.internal",
+                subject: "Discovery Day follow-up — Summer 2027 SWE internship (Sumon Mondal)",
+                body: "Hi Sarah,\n\nThank you for hosting Discovery Day today. The Summer 2027 software engineering internship, especially the Applied AI team, is exactly what I'm looking for, and I'll have my application in before the October 18 deadline.\n\nBest regards,\nSumon Mondal"
+            )
             return (
-                "The host for Discovery Day was Sarah Chen, Lead Technical Recruiter at Nova Dynamics (sarah.chen@novadynamics.internal). I have drafted a personalized follow-up email ready for approval.",
-                ["Queried meeting host records", "Identified host contact: Sarah Chen", "Drafted personalized follow-up from meeting memory"],
+                "Sarah Chen, University Recruiting Lead at Nova Dynamics, hosted Discovery Day. I drafted a follow-up that mentions the Applied AI team and the October 18 deadline, ready for your approval.",
+                ["Identified the host: Sarah Chen", "Drafted a follow-up from what was said in the meeting"],
                 email, nil, nil, nil, nil
             )
         }
 
-        return ("Processed request based on current meeting memory.", ["Queried meeting context", "Applied agent workflow"], nil, nil, nil, nil, nil)
+        let latest = latestMoment.map { "Latest: \($0.speaker) — \($0.takeaway)" } ?? "Nothing notable has been said yet."
+        return (
+            "\(latest)\nI can draft the follow-up to Sarah, add the application deadline to your calendar, pull the portal link, or recap the meeting.",
+            ["Checked the meeting so far"],
+            nil, nil, nil, nil, nil
+        )
+    }
+
+    /// Next Thursday at 4 PM Eastern, as an ISO timestamp for calendar payloads.
+    static func nextThursday4pmISO(from now: Date = Date()) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        let weekday = calendar.component(.weekday, from: now) // Sunday = 1, Thursday = 5
+        var daysAhead = (5 - weekday + 7) % 7
+        if daysAhead == 0 { daysAhead = 7 }
+        let day = calendar.date(byAdding: .day, value: daysAhead, to: now) ?? now
+        let start = calendar.date(bySettingHour: 16, minute: 0, second: 0, of: day) ?? day
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = calendar.timeZone
+        return formatter.string(from: start)
     }
 
     public func executeBatchMinutesDispatch(batch: AgentBatchPayload) async -> Bool {
@@ -1567,9 +1739,13 @@ public class ThreadSessionManager: ObservableObject {
     // MARK: - Judge Demonstration Controls (Active in Demo Mode)
 
     public func startDemoMeeting() {
+        if isDemoEnded { setupDemoMode() } // Replay starts from a fresh script
+        let resuming = isDemoPaused
         isDemoMode = true
+        isDemoPaused = false
+        isDemoEnded = false
         isDemoRunning = true
-        if elapsed == 0 || elapsed >= 330 {
+        if elapsed == 0 || elapsed >= Self.demoScriptLength {
             elapsed = 18 // Start when Sarah Chen announces the SWE internship openings
         }
         meetingStartDate = Date().addingTimeInterval(-Double(elapsed))
@@ -1577,11 +1753,37 @@ public class ThreadSessionManager: ObservableObject {
         updateDemoStateForTime()
         startDemoTimer()
         startLiveActivity()
-        showNotification(text: "🟢 Live Demo Meeting Started — Sarah Chen speaking")
+        showNotification(text: resuming ? "▶︎ Demo resumed at \(Self.clock(elapsed))" : "🟢 Live Demo Meeting Started — Sarah Chen speaking")
         let gen = UINotificationFeedbackGenerator()
         gen.notificationOccurred(.success)
     }
 
+    /// Freezes the clock; the cockpit and Dynamic Island keep showing the meeting as it was.
+    public func pauseDemoMeeting() {
+        guard isDemoRunning else { return }
+        demoTimer?.invalidate()
+        isDemoRunning = false
+        isDemoPaused = true
+        updateLiveActivity()
+        showNotification(text: "⏸ Demo paused at \(Self.clock(elapsed))")
+    }
+
+    /// Ends the meeting but keeps moments, transcript and staged actions on screen for review and approval.
+    public func endDemoMeeting() {
+        guard isDemoMode else { return }
+        demoTimer?.invalidate()
+        isDemoRunning = false
+        isDemoPaused = false
+        isDemoEnded = true
+        screenShareActive = false
+        endLiveActivity()
+        let awaiting = visibleActions.filter { $0.status == "staged" }.count
+        showNotification(text: "Meeting ended — \(awaiting) action\(awaiting == 1 ? "" : "s") awaiting approval")
+        let gen = UINotificationFeedbackGenerator()
+        gen.notificationOccurred(.warning)
+    }
+
+    /// Leaves demo mode entirely and returns to live meeting standby.
     public func stopDemoMeeting() {
         isDemoRunning = false
         isDemoMode = false
@@ -1595,7 +1797,7 @@ public class ThreadSessionManager: ObservableObject {
 
     public func toggleDemoPlayback() {
         if isDemoRunning {
-            stopDemoMeeting()
+            pauseDemoMeeting()
         } else {
             startDemoMeeting()
         }
@@ -1605,47 +1807,93 @@ public class ThreadSessionManager: ObservableObject {
         demoTimer?.invalidate()
         demoTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                self.elapsed += 1
-                if self.elapsed > 330 {
-                    self.elapsed = 330
-                    self.isDemoRunning = false
-                    self.isDemoMode = false
-                    self.screenShareActive = false
-                    self.demoTimer?.invalidate()
-                    self.endLiveActivity()
-                    self.showNotification(text: "Meeting Concluded — Actions Staged")
-                }
-                self.updateDemoStateForTime()
+                self?.tickDemoClock()
             }
         }
     }
 
+    /// Wall-clock based, so the meeting keeps its place (and matches the Dynamic Island timer)
+    /// even after iOS suspends the app for a while.
+    private func tickDemoClock() {
+        guard isDemoRunning else { return }
+        let wallClock = Int(Date().timeIntervalSince(meetingStartDate))
+        if wallClock >= Self.demoScriptLength {
+            elapsed = Self.demoScriptLength
+            endDemoMeeting()
+            return
+        }
+        elapsed = max(elapsed, wallClock)
+        updateDemoStateForTime()
+    }
+
+    private func observeAppLifecycle() {
+        let center = NotificationCenter.default
+        center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.keepDemoClockAliveInBackground() }
+        }
+        center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.endDemoBackgroundTask()
+                self?.tickDemoClock()
+            }
+        }
+    }
+
+    /// iOS allows a backgrounded app about 30 seconds — enough for the next moment to reach the Dynamic Island.
+    private func keepDemoClockAliveInBackground() {
+        guard isDemoRunning, demoBackgroundTask == .invalid else { return }
+        demoBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Thread demo clock") { [weak self] in
+            MainActor.assumeIsolated { self?.endDemoBackgroundTask() }
+        }
+    }
+
+    private func endDemoBackgroundTask() {
+        guard demoBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(demoBackgroundTask)
+        demoBackgroundTask = .invalid
+    }
+
+    /// In driving mode the screen stays awake during a meeting, so announcements keep coming like a navigation app.
+    private func refreshIdleTimer() {
+        UIApplication.shared.isIdleTimerDisabled = isDrivingMode && isMeetingActive
+    }
+
     public func advanceToNextMilestone() {
-        if !isDemoRunning {
+        guard isDemoRunning || isDemoPaused else {
             startDemoMeeting()
             return
         }
         let milestones = [18, 36, 58, 70, 90, 112, 311]
-        if let next = milestones.first(where: { $0 > elapsed }) {
-            elapsed = next
-        } else {
-            elapsed = 18
+        guard let next = milestones.first(where: { $0 > elapsed }) else {
+            // Past the last milestone, Next wraps the meeting up.
+            elapsed = Self.demoScriptLength
+            endDemoMeeting()
+            return
         }
-        updateDemoStateForTime()
-        showNotification(text: "Jumped to milestone: \(shortHeadline)")
+        elapsed = next
+        meetingStartDate = Date().addingTimeInterval(-Double(elapsed))
+        if isDemoPaused {
+            startDemoMeeting()
+        } else {
+            updateDemoStateForTime()
+            showNotification(text: "Jumped to milestone: \(shortHeadline)")
+        }
         let generator = UIImpactFeedbackGenerator(style: .medium)
         generator.impactOccurred()
+    }
+
+    public static func clock(_ seconds: Int) -> String {
+        String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     public func triggerUrgentAction() {
         let urgentAction = DemoAction(
             id: "urgent-\(Int(Date().timeIntervalSince1970))",
-            label: "⚡ Urgent: Approve Sarah's Follow-up Email",
+            label: "⚡ Reply to Sarah with your portfolio",
             status: "staged",
             timeSec: elapsed,
-            detail: "Recruiter Sarah Chen requested your portfolio link via chat. Ready to dispatch.",
-            link: nil
+            detail: "Sarah Chen asked for your portfolio link in chat. Reply is drafted.",
+            link: "mailto:sarah.chen@novadynamics.internal"
         )
         actions.insert(urgentAction, at: 0)
         shortHeadline = "Action Needed"
@@ -1656,41 +1904,84 @@ public class ThreadSessionManager: ObservableObject {
     }
 
     private func updateDemoStateForTime() {
-        // 1. Identify active transcript line
-        if let line = visibleTranscript.last {
-            if line.speaker.contains("Sarah") {
-                currentSpeaker = SpeakerInfo(name: "Sarah Chen", role: "University Recruiting Lead", initials: "SC", color: .blue)
-                meetingPlatform = "Google Meet"
-            } else if line.speaker.contains("Michael") {
-                currentSpeaker = SpeakerInfo(name: "Michael Torres", role: "Staff Engineer", initials: "MT", color: .purple)
-                meetingPlatform = (elapsed >= 36 && elapsed <= 85) ? "Zoom" : "Google Meet"
-            } else if line.speaker.contains("Priya") {
-                currentSpeaker = SpeakerInfo(name: "Priya Nair", role: "Hiring Manager", initials: "PN", color: .teal)
-                meetingPlatform = "Google Meet"
-            }
+        guard let line = visibleTranscript.last else { return }
+
+        // 1. Identify active speaker
+        if line.speaker.contains("Sarah") {
+            currentSpeaker = SpeakerInfo(name: "Sarah Chen", role: "University Recruiting Lead", initials: "SC", color: .blue)
+        } else if line.speaker.contains("Michael") {
+            currentSpeaker = SpeakerInfo(name: "Michael Torres", role: "Staff Engineer", initials: "MT", color: .purple)
+        } else if line.speaker.contains("Priya") {
+            currentSpeaker = SpeakerInfo(name: "Priya Nair", role: "Hiring Manager", initials: "PN", color: .teal)
         }
+
         screenShareActive = (elapsed >= 36 && elapsed <= 75)
 
-        // 2. Identify active meeting gist from latest moment or current dialogue
-        if let currentMoment = visibleMoments.last {
-            self.liveSummary = currentMoment.takeaway
-            switch currentMoment.id {
-            case "m1": self.shortHeadline = "Internships Open"
-            case "m2": self.shortHeadline = "Portal QR Code"
-            case "m3": self.shortHeadline = "Oct 18 Deadline"
-            case "m4": self.shortHeadline = "Python & Systems"
-            case "m5": self.shortHeadline = "Engineering Q&A"
-            case "m6": self.shortHeadline = "Priority Referrals"
-            case "m7": self.shortHeadline = "Trash & Waste"
+        // 2. Map line ID to live headline, summary, and in-app toast notification
+        let (headline, summary, toast): (String, String, String) = {
+            switch line.id {
+            case "t1":
+                return ("Discovery Day", "Welcome to Discovery Day · 200+ students live", "🎙 Sarah Chen: Welcome everyone to Nova Dynamics Discovery Day!")
+            case "t2":
+                return ("Housekeeping", "Session is recorded · All links will be shared", "🎙 Sarah Chen: Quick housekeeping — session is recorded and links will be shared")
+            case "t3":
+                return ("Internships Open", "Summer 2027 SWE internship applications open today", "✦ Sarah Chen: Summer 2027 SWE Applications Open Today!")
+            case "t4":
+                return ("Paid AI Roles", "Paid 12-week roles across Platform, Infra, Applied AI", "🎙 Sarah Chen: Paid 12-week roles across Platform, Infra, Applied AI")
+            case "t5":
+                return ("Portal QR Code", "Gemini Vision decoded slide QR code for application portal", "📱 Michael Torres: Scan QR code on slide for application portal")
+            case "t6":
+                return ("Pre-Fill Portal", "Portal has resume pre-fill & statement of interest", "🎙 Michael Torres: Portal has profile pre-fill & portfolio link")
+            case "t7":
+                return ("Oct 18 Cutoff", "Applications close firmly Oct 18, 11:59 PM ET", "⏰ Sarah Chen: Applications close firmly October 18th at 11:59 PM")
+            case "t8":
+                return ("Python & Systems", "Strong fundamentals in Python & distributed systems", "🎙 Michael Torres: Looking for Python & distributed systems")
+            case "t9":
+                return ("Q&A Thursday 4PM", "Engineering Q&A panel next Thursday at 4 PM Eastern", "📅 Priya Nair: Engineering Q&A panel next Thursday at 4 PM Eastern")
+            case "t10":
+                return ("Priority Referrals", "Referral applications receive priority queue review", "✦ Priya Nair: Referral applications get priority review")
+            case "t11":
+                return ("Smart Recycling", "Campus trash & aluminum can sorting initiative", "🌱 Michael Torres: Campus recycling initiative due Nov 15")
             default:
-                let (h, _) = ThreadSessionManager.summarizeLiveSpeech(text: currentMoment.takeaway)
-                self.shortHeadline = h
+                let (h, s) = ThreadSessionManager.summarizeLiveSpeech(text: line.text)
+                return (h, s, "🎙 \(currentSpeaker.name): \(line.text)")
             }
-        } else if let line = visibleTranscript.last {
-            let (h, s) = ThreadSessionManager.summarizeLiveSpeech(text: line.text)
-            self.shortHeadline = h
-            self.liveSummary = s
+        }()
+
+        self.shortHeadline = headline
+        self.liveSummary = summary
+
+        // 3. New speech event trigger: update notification banner toast & post system notification
+        if lastSpokenTranscriptId != line.id {
+            lastSpokenTranscriptId = line.id
+            showNotification(text: toast)
+            ThreadNotificationManager.shared.postMomentNotification(
+                title: "\(currentSpeaker.name) · \(headline)",
+                body: toast
+            )
+            speakAloud("\(currentSpeaker.name): \(headline). \(summary)")
         }
+
+        // 4. Trigger live interactive poll at 48 seconds
+        if elapsed >= 48 && activePoll == nil && !hasShownDemoPoll {
+            hasShownDemoPoll = true
+            let poll = LiveMeetingPoll(
+                id: "poll-demo-1",
+                question: "Which internship focus area interests you most?",
+                options: ["Applied AI & LLMs", "Distributed Systems & Infra", "Full-Stack Web & Mobile", "Compiler & Systems Engineering"],
+                selectedOption: nil,
+                isAnswered: false,
+                timeSec: elapsed
+            )
+            self.activePoll = poll
+            showNotification(text: "🗳 Live Poll: Which internship area interests you most?")
+            ThreadNotificationManager.shared.postMomentNotification(
+                title: "Live Meeting Poll Detected",
+                body: "Vote now: Which internship focus area interests you most?"
+            )
+            speakAloud("Zoom poll detected: Which internship focus area interests you most? Tap to vote.")
+        }
+
         updateLiveActivity()
     }
 
@@ -1699,28 +1990,30 @@ public class ThreadSessionManager: ObservableObject {
         actions[idx].status = "executed"
         let act = actions[idx]
 
-        showNotification(text: "✓ Executed: \(act.label)")
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-
-        if act.id.hasPrefix("email-") || act.label.contains("✉️") {
-            let email = act.link?.replacingOccurrences(of: "mailto:", with: "") ?? "sarah.chen@novadynamics.internal"
+        // Only actions that carry a real address send mail; a failed send goes back to the queue.
+        if let link = act.link, link.hasPrefix("mailto:") {
             Task {
-                _ = await executeDirectEmail(
-                    to: email,
+                let sent = await executeDirectEmail(
+                    to: String(link.dropFirst("mailto:".count)),
                     subject: "Follow-up: \(meetingTitle)",
                     body: "Hi,\n\nFollowing up from our live session today. Looking forward to connecting further.\n\nBest regards,\nSumon Mondal"
                 )
+                if !sent { restageAction(id: id) }
             }
         } else if act.id.hasPrefix("cal-") || act.label.contains("📅") {
+            let start = act.detail.flatMap { $0.hasPrefix("Date: ") ? String($0.dropFirst("Date: ".count)) : nil } ?? "2026-10-18T23:59:00"
             Task {
-                _ = await executeDirectCalendarEvent(
-                    title: act.label.replacingOccurrences(of: "📅 Add to Google Calendar: ", with: ""),
-                    start: "2026-10-18T23:59:00",
+                let added = await executeDirectCalendarEvent(
+                    title: act.label.replacingOccurrences(of: "📅 Add to Calendar: ", with: ""),
+                    start: start,
                     durationMin: 60,
                     notes: act.detail ?? "Scheduled by Thread Meeting Intelligence"
                 )
+                if !added { restageAction(id: id) }
             }
+        } else {
+            showNotification(text: "✓ Executed: \(act.label)")
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
 
         // Broadcast to Google Meet / Zoom extension & server
@@ -1736,9 +2029,17 @@ public class ThreadSessionManager: ObservableObject {
         updateLiveActivity()
     }
 
+    private func restageAction(id: String) {
+        guard let idx = actions.firstIndex(where: { $0.id == id }) else { return }
+        actions[idx].status = "staged"
+        updateLiveActivity()
+    }
+
     public func resetDemo() {
         demoTimer?.invalidate()
         isDemoRunning = false
+        isDemoPaused = false
+        isDemoEnded = false
         if isDemoMode {
             elapsed = 0
             shortHeadline = "Ready to Begin"
@@ -1790,7 +2091,7 @@ public class ThreadSessionManager: ObservableObject {
         }
 
         let attributes = ThreadActivityAttributes(sessionId: UUID().uuidString)
-        let firstStaged = actions.first(where: { $0.status == "staged" })
+        let firstStaged = visibleActions.first(where: { $0.status == "staged" })
         let progress = min(1.0, Double(elapsed) / 330.0)
         let effectiveSummary = !liveSummary.isEmpty ? liveSummary : (latestMoment?.takeaway ?? shortHeadline)
         let state = ThreadActivityAttributes.ContentState(
@@ -1807,7 +2108,8 @@ public class ThreadSessionManager: ObservableObject {
             stagedActionId: firstStaged?.id,
             stagedActionLabel: firstStaged?.label,
             isActionExecuted: false,
-            isDemoMode: isDemoMode
+            isDemoMode: isDemoMode,
+            isPaused: isDemoPaused
         )
 
         do {
@@ -1816,22 +2118,25 @@ public class ThreadSessionManager: ObservableObject {
                 content: .init(state: state, staleDate: nil)
             )
             self.liveActivity = activity
+            lastPushedActivityState = nil
         } catch {
             print("Failed to start Live Activity: \(error)")
         }
     }
 
     public func updateLiveActivity() {
+        refreshIdleTimer()
         guard isMeetingActive else {
             endLiveActivity()
             return
         }
 
+        let alert = announceNewMomentIfNeeded()
         let activity = (liveActivity as? Activity<ThreadActivityAttributes>) ?? Activity<ThreadActivityAttributes>.activities.first
         guard let activity = activity else { return }
         self.liveActivity = activity
 
-        let firstStaged = actions.first(where: { $0.status == "staged" })
+        let firstStaged = visibleActions.first(where: { $0.status == "staged" })
         let progress = min(1.0, Double(elapsed) / 330.0)
         let effectiveSummary = !liveSummary.isEmpty ? liveSummary : (latestMoment?.takeaway ?? shortHeadline)
         let updatedState = ThreadActivityAttributes.ContentState(
@@ -1848,15 +2153,47 @@ public class ThreadSessionManager: ObservableObject {
             stagedActionId: firstStaged?.id,
             stagedActionLabel: firstStaged?.label,
             isActionExecuted: firstStaged == nil,
-            isDemoMode: isDemoMode
+            isDemoMode: isDemoMode,
+            isPaused: isDemoPaused
         )
 
+        // The island renders its own running timer, so a tick alone is not worth an update —
+        // per-second pushes get throttled by iOS and delay the ones that matter.
+        var comparable = updatedState
+        comparable.elapsedSeconds = isDemoPaused ? elapsed : 0
+        comparable.progress = 0
+        if alert == nil, comparable == lastPushedActivityState { return }
+        lastPushedActivityState = comparable
+
         Task {
-            await activity.update(.init(state: updatedState, staleDate: nil))
+            await activity.update(.init(state: updatedState, staleDate: nil), alertConfiguration: alert)
         }
     }
 
+    /// Each new moment is announced once: spoken in driving mode, and — when Thread isn't on screen —
+    /// as a Dynamic Island / Lock Screen alert, or a regular notification if Live Activities are off.
+    private func announceNewMomentIfNeeded() -> AlertConfiguration? {
+        guard let moment = latestMoment, moment.id != lastAnnouncedMomentId else { return nil }
+        lastAnnouncedMomentId = moment.id
+
+        let title = "\(moment.type.capitalized) · \(moment.speaker)"
+        speakAloud("\(moment.type.capitalized). \(moment.takeaway)")
+
+        guard UIApplication.shared.applicationState != .active else { return nil }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            ThreadNotificationManager.shared.postMomentNotification(title: title, body: moment.takeaway)
+            return nil
+        }
+        return AlertConfiguration(
+            title: LocalizedStringResource(stringLiteral: title),
+            body: LocalizedStringResource(stringLiteral: moment.takeaway),
+            sound: .default
+        )
+    }
+
     public func endLiveActivity() {
+        refreshIdleTimer()
+        lastPushedActivityState = nil
         let activities = Activity<ThreadActivityAttributes>.activities
         for activity in activities {
             Task {

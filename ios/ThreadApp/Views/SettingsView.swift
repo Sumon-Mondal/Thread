@@ -158,17 +158,17 @@ public struct SettingsView: View {
 
             VStack(spacing: 12) {
 
-                // ── Start / Stop Demo Meeting ──
-                if manager.isDemoRunning {
+                // ── Start / End Demo Meeting ──
+                if manager.isDemoRunning || manager.isDemoPaused {
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
-                            manager.stopDemoMeeting()
+                            manager.endDemoMeeting()
                         }
                     }) {
                         HStack(spacing: 10) {
                             Image(systemName: "stop.circle.fill")
                                 .font(.system(size: 16, weight: .bold))
-                            Text("Stop Demo Meeting")
+                            Text("End Demo Meeting")
                                 .font(.system(size: 14, weight: .bold))
                             Spacer()
                         }
@@ -219,7 +219,7 @@ public struct SettingsView: View {
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: manager.isDemoRunning ? "pause.fill" : "play.fill")
-                            Text(manager.isDemoRunning ? "Pause" : "Play Demo")
+                            Text(manager.isDemoRunning ? "Pause" : (manager.isDemoPaused ? "Resume" : "Play Demo"))
                         }
                         .font(.system(size: 12, weight: .bold))
                         .frame(maxWidth: .infinity)
@@ -284,11 +284,11 @@ public struct SettingsView: View {
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("\(manager.elapsed)s / 125s")
+                        Text("\(ThreadSessionManager.clock(manager.elapsed)) / \(ThreadSessionManager.clock(ThreadSessionManager.demoScriptLength))")
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(.secondary)
                     }
-                    ProgressView(value: min(Double(manager.elapsed) / 125.0, 1.0))
+                    ProgressView(value: min(Double(manager.elapsed) / Double(ThreadSessionManager.demoScriptLength), 1.0))
                         .tint(Color.blue)
                 }
             }
@@ -319,18 +319,18 @@ public struct SettingsView: View {
                         Text("Sync Server Endpoint")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.white)
-                        Text(manager.serverUrl.contains("10.11.6.47") ? "Local Mac (10.11.6.47:3000)" : "Cloud Production Server")
+                        Text(manager.serverUrl == ThreadSessionManager.macServerUrl ? "This Mac (10.11.6.47:8080)" : "Lovable cloud")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.cyan)
                     }
                     Spacer()
                     Button(action: {
-                        if manager.serverUrl.contains("10.11.6.47") {
-                            manager.serverUrl = "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app"
-                            manager.showNotification(text: "Target: Cloud Server")
+                        if manager.serverUrl == ThreadSessionManager.macServerUrl {
+                            manager.serverUrl = ThreadSessionManager.cloudServerUrl
+                            manager.showNotification(text: "Server: Lovable cloud")
                         } else {
-                            manager.serverUrl = "http://10.11.6.47:3000"
-                            manager.showNotification(text: "Target: Local Mac")
+                            manager.serverUrl = ThreadSessionManager.macServerUrl
+                            manager.showNotification(text: "Server: this Mac (port 8080)")
                         }
                     }) {
                         Text("Switch")
@@ -514,7 +514,9 @@ public struct SettingsView: View {
                         Image(systemName: "mic.fill")
                             .foregroundColor(.yellow)
                             .font(.system(size: 12))
-                        Text("Voice commands: Say \"vote yes\", \"fill it up\", \"just send it\", or \"summarize\".")
+                        Text(manager.isAmbientListeningEnabled
+                             ? "New moments are read aloud. Say \"just send it\", \"schedule it\", \"summarize\" or \"vote yes\"."
+                             : "New moments are read aloud. Voice commands need the in-room mic — turn it on below with attendee consent.")
                             .font(.system(size: 10.5))
                             .foregroundColor(.white.opacity(0.85))
                     }

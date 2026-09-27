@@ -13,12 +13,14 @@
 		583B0320F59D78CF48B1B125 /* MeetingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C44F2445929C2F2F61547F9 /* MeetingRoomView.swift */; };
 		585DAB9912D01015CC662800 /* VirtualMachineScreenSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 326C7AD3F841B1236F905B38 /* VirtualMachineScreenSheet.swift */; };
 		5EFDAAFACC3F5446C0A1C4F2 /* LiveState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7B707258DDEF8E46862DBE /* LiveState.swift */; };
+		68405AED6D72EA89B605725D /* CarPlayDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDC3C7A7A098A753B531E7B2 /* CarPlayDashboardView.swift */; };
 		74D013D6C0363B201F896B5C /* ThreadWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3BC45120E7A05E18792A8E8C /* ThreadWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7BF726E0CAA9875525098AC3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 29BD60457FD6A6E7E30997EA /* Assets.xcassets */; };
 		8088CED3E3F09AA28C1A9949 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A948F2FC7D755B5061B4950D /* AgentView.swift */; };
 		88007EE1D4E3194B0E8EFF12 /* CockpitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */; };
 		987051345EF5D96BEA7C15D0 /* ThreadActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */; };
 		A5F0660F438EABD2FD1C0EA6 /* SpeechRecognizerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B58E75FCC1E5417B0A1AC7D /* SpeechRecognizerManager.swift */; };
+		A7B0FDB8B66BB5A43F2370CA /* ThreadCarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EE580FE311F364FCD3AF67 /* ThreadCarPlaySceneDelegate.swift */; };
 		B87EBA58DF24D32D97192864 /* ThreadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */; };
 		B9B0888BC79BF165748BF43B /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28EEC1BEAE9A9998C11D2B63 /* IntegrationsView.swift */; };
 		BBC69D41E9DE36053F43376C /* ThreadSpeechAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */; };
@@ -27,6 +29,7 @@
 		D5F57AD6AACB9AB097047B1F /* ThreadActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */; };
 		E2448A68264077E480A3BBCD /* AgentMomentInspectorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AAB832E9C536CF17AFFD4C2 /* AgentMomentInspectorSheet.swift */; };
 		EC1DFEEFAB7ADD4400C32278 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6C2721C988E32AF3AE9142C /* SettingsView.swift */; };
+		EE925C94F6DD4E0B5D33F9C9 /* CarPlay.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6218539D39CCEAB6297603A6 /* CarPlay.framework */; };
 		F8A67F8D97022C70922E52B3 /* GlassComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C51DA8ABC1BE583360D38D /* GlassComponents.swift */; };
 /* End PBXBuildFile section */
 
@@ -65,6 +68,7 @@
 		4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSpeechAnnouncer.swift; sourceTree = "<group>"; };
 		533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationManager.swift; sourceTree = "<group>"; };
 		5721688A10CD78595E1F8905 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6218539D39CCEAB6297603A6 /* CarPlay.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CarPlay.framework; path = System/Library/Frameworks/CarPlay.framework; sourceTree = SDKROOT; };
 		696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadActivityAttributes.swift; sourceTree = "<group>"; };
 		6B58E75FCC1E5417B0A1AC7D /* SpeechRecognizerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizerManager.swift; sourceTree = "<group>"; };
 		7A7B707258DDEF8E46862DBE /* LiveState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveState.swift; sourceTree = "<group>"; };
@@ -76,10 +80,23 @@
 		C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitView.swift; sourceTree = "<group>"; };
 		C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailComposerSheet.swift; sourceTree = "<group>"; };
 		DBBA0A17CCD76790DBE08EE3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		DDC3C7A7A098A753B531E7B2 /* CarPlayDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayDashboardView.swift; sourceTree = "<group>"; };
+		E4EE580FE311F364FCD3AF67 /* ThreadCarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		E5442CAF3E7AE4757E272CE7 /* ThreadApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ThreadApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingControlsSheet.swift; sourceTree = "<group>"; };
 		F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9E1DA6E5600E10FD8DA77163 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE925C94F6DD4E0B5D33F9C9 /* CarPlay.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		1E12570C51CADCCA983B2D09 /* Config */ = {
@@ -108,6 +125,7 @@
 				1E12570C51CADCCA983B2D09 /* Config */,
 				C0F67FBC6B081299D2CBB7A2 /* ThreadApp */,
 				737699405DD41BC61832A4D5 /* ThreadWidget */,
+				F0C5CD3A4EF67EF3459CCB0D /* Frameworks */,
 				A05E0BC879D67EFBB7CD36B8 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -129,6 +147,7 @@
 			children = (
 				0AAB832E9C536CF17AFFD4C2 /* AgentMomentInspectorSheet.swift */,
 				A948F2FC7D755B5061B4950D /* AgentView.swift */,
+				DDC3C7A7A098A753B531E7B2 /* CarPlayDashboardView.swift */,
 				C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */,
 				C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */,
 				23C51DA8ABC1BE583360D38D /* GlassComponents.swift */,
@@ -156,11 +175,28 @@
 				29BD60457FD6A6E7E30997EA /* Assets.xcassets */,
 				DBBA0A17CCD76790DBE08EE3 /* Info.plist */,
 				F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */,
+				ED841F1CE2D6F9890B6540D9 /* CarPlay */,
 				5EC4E8E19AA8F846C5B512F7 /* Models */,
 				846026B43D9401EC6E743476 /* Views */,
 			);
 			name = ThreadApp;
 			path = ios/ThreadApp;
+			sourceTree = "<group>";
+		};
+		ED841F1CE2D6F9890B6540D9 /* CarPlay */ = {
+			isa = PBXGroup;
+			children = (
+				E4EE580FE311F364FCD3AF67 /* ThreadCarPlaySceneDelegate.swift */,
+			);
+			path = CarPlay;
+			sourceTree = "<group>";
+		};
+		F0C5CD3A4EF67EF3459CCB0D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6218539D39CCEAB6297603A6 /* CarPlay.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -172,6 +208,7 @@
 			buildPhases = (
 				E82D0B9A52CB9C7636761C5D /* Sources */,
 				1F98EE4B24B501470231DA62 /* Resources */,
+				9E1DA6E5600E10FD8DA77163 /* Frameworks */,
 				8592CD05179C115ADA2AAF32 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -270,6 +307,7 @@
 			files = (
 				E2448A68264077E480A3BBCD /* AgentMomentInspectorSheet.swift in Sources */,
 				8088CED3E3F09AA28C1A9949 /* AgentView.swift in Sources */,
+				68405AED6D72EA89B605725D /* CarPlayDashboardView.swift in Sources */,
 				88007EE1D4E3194B0E8EFF12 /* CockpitView.swift in Sources */,
 				0B4C8F67B4F429813FA077E4 /* EmailComposerSheet.swift in Sources */,
 				F8A67F8D97022C70922E52B3 /* GlassComponents.swift in Sources */,
@@ -281,6 +319,7 @@
 				A5F0660F438EABD2FD1C0EA6 /* SpeechRecognizerManager.swift in Sources */,
 				D5F57AD6AACB9AB097047B1F /* ThreadActivityAttributes.swift in Sources */,
 				B87EBA58DF24D32D97192864 /* ThreadApp.swift in Sources */,
+				A7B0FDB8B66BB5A43F2370CA /* ThreadCarPlaySceneDelegate.swift in Sources */,
 				2BF17F181249BC04F80F0655 /* ThreadNotificationManager.swift in Sources */,
 				BBC69D41E9DE36053F43376C /* ThreadSpeechAnnouncer.swift in Sources */,
 				585DAB9912D01015CC662800 /* VirtualMachineScreenSheet.swift in Sources */,

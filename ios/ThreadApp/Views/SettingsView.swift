@@ -6,6 +6,7 @@ public struct SettingsView: View {
     @State private var showingResetAlert = false
     @State private var showingConsentAlert = false
     @State private var showingVmScreenSheet = false
+    @State private var showingCarPlaySheet = false
     @State private var elevenLabsKeyInput: String = ThreadSpeechAnnouncer.shared.elevenLabsApiKey
 
     public init() {}
@@ -81,6 +82,10 @@ public struct SettingsView: View {
             }
             .sheet(isPresented: $showingVmScreenSheet) {
                 VirtualMachineScreenSheet()
+            }
+            .sheet(isPresented: $showingCarPlaySheet) {
+                CarPlayDashboardView()
+                    .environmentObject(manager)
             }
         }
         .alert(isPresented: $showingResetAlert) {
@@ -610,6 +615,38 @@ public struct SettingsView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                // 🚗 Apple CarPlay & Automotive HUD View
+                Button(action: {
+                    showingCarPlaySheet = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "car.fill")
+                            .foregroundColor(.purple)
+                            .font(.system(size: 13))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Open Apple CarPlay Dashboard")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Automotive HUD layout designed for vehicle screens & mounts")
+                                .font(.system(size: 9.5))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.up.right.square")
+                            .font(.system(size: 12))
+                            .foregroundColor(.purple)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color.purple.opacity(0.15))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.purple.opacity(0.35), lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)

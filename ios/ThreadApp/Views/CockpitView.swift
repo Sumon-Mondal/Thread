@@ -11,6 +11,7 @@ public struct CockpitView: View {
     @State private var selectedMomentForAgent: DemoMoment? = nil
     @State private var showingMeetingControlsSheet = false
     @State private var showingVmScreenSheet = false
+    @State private var showingCarPlaySheet = false
     @State private var selectedFormIndex: Int = 0
 
     public init() {}
@@ -154,6 +155,10 @@ public struct CockpitView: View {
             EmailComposerSheet(action: emailAction)
                 .environmentObject(manager)
         }
+        .sheet(isPresented: $showingCarPlaySheet) {
+            CarPlayDashboardView()
+                .environmentObject(manager)
+        }
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("-Thread_openVmScreen") {
                 showingVmScreenSheet = true
@@ -194,6 +199,12 @@ public struct CockpitView: View {
             }
             if ProcessInfo.processInfo.arguments.contains("-Thread_openSettings") {
                 showingSettingsSheet = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_openCarPlay") {
+                showingCarPlaySheet = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_drivingMode") {
+                manager.isDrivingMode = true
             }
         }
     }
@@ -470,14 +481,14 @@ public struct CockpitView: View {
                         Button(action: {
                             manager.sendReactionInMeeting("👍")
                         }) {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 5) {
                                 Text("👍")
-                                    .font(.system(size: 22))
+                                    .font(.system(size: 20))
                                 Text("React 👍")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 11, weight: .bold))
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 12)
                             .background(Color.blue.opacity(0.25))
                             .foregroundColor(.white)
                             .cornerRadius(10)
@@ -490,14 +501,14 @@ public struct CockpitView: View {
                             manager.speakAloud("Latest meeting update: \(summary)", force: true)
                             manager.showNotification(text: "🔊 \(summary)")
                         }) {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 5) {
                                 Image(systemName: "speaker.wave.3.fill")
-                                    .font(.system(size: 20))
-                                Text("Speak Summary")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 18))
+                                Text("Speak")
+                                    .font(.system(size: 11, weight: .bold))
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 12)
                             .background(Color.yellow.opacity(0.18))
                             .foregroundColor(.yellow)
                             .cornerRadius(10)
@@ -513,18 +524,36 @@ public struct CockpitView: View {
                                 manager.showNotification(text: "No pending actions")
                             }
                         }) {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 5) {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 20))
-                                Text("Execute Next")
-                                    .font(.system(size: 12, weight: .bold))
+                                    .font(.system(size: 18))
+                                Text("Execute")
+                                    .font(.system(size: 11, weight: .bold))
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
+                            .padding(.vertical, 12)
                             .background(Color.green.opacity(0.18))
                             .foregroundColor(.green)
                             .cornerRadius(10)
                             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.green.opacity(0.4), lineWidth: 1))
+                        }
+
+                        // 1-Tap CarPlay HUD View
+                        Button(action: {
+                            showingCarPlaySheet = true
+                        }) {
+                            VStack(spacing: 5) {
+                                Image(systemName: "car.fill")
+                                    .font(.system(size: 18))
+                                Text("CarPlay")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.purple.opacity(0.20))
+                            .foregroundColor(.purple)
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.purple.opacity(0.45), lineWidth: 1))
                         }
                     }
                 }

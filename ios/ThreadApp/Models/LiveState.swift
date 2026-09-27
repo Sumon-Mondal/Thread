@@ -295,6 +295,7 @@ public class ThreadSessionManager: ObservableObject {
 
     @Published public var shortHeadline: String = "Meeting Standby"
     @Published public var currentSpeaker: SpeakerInfo = SpeakerInfo(name: "Meeting Standby", role: "Awaiting Call or Agenda", initials: "TM", color: .cyan)
+    public var activeSpeaker: String? { currentSpeaker.name }
     @Published public var screenShareActive: Bool = false
     @Published public var notificationBannerText: String? = nil
     @Published public var liveSummary: String = ""
@@ -322,6 +323,7 @@ public class ThreadSessionManager: ObservableObject {
     @Published public var allTranscript: [DemoTranscript] = []
     @Published public var lastSpokenTranscriptId: String? = nil
     @Published public var hasShownDemoPoll: Bool = false
+    @Published public var isCarPlayConnected: Bool = false
 
     // Backend endpoint
     public static let cloudServerUrl = "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app"
@@ -835,6 +837,23 @@ public class ThreadSessionManager: ObservableObject {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
         Task { _ = try? await URLSession.shared.data(for: req) }
+    }
+
+    /// Speaks the latest takeaway aloud (used by CarPlay, driving mode, and voice controls)
+    public func speakLatestTakeaway() {
+        if let lastMoment = visibleMoments.last {
+            let announcement = lastMoment.takeaway
+            speakAloud(announcement)
+            showNotification(text: "🔊 \(announcement)")
+        } else if let speaker = activeSpeaker, !speaker.isEmpty {
+            let msg = "\(speaker) is speaking in \(meetingTitle)"
+            speakAloud(msg)
+            showNotification(text: "🔊 \(msg)")
+        } else {
+            let msg = "Meeting is active. Thread is listening."
+            speakAloud(msg)
+            showNotification(text: "🔊 \(msg)")
+        }
     }
 
     // MARK: - Calendar Notification Trigger (for demo / real calendar events)

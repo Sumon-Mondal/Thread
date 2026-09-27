@@ -34,6 +34,7 @@ targets:
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: "Thread uses speech recognition to convert speech into text for meeting intelligence."
     dependencies:
       - target: ThreadWidget
+      - sdk: CarPlay.framework
   ThreadWidget:
     type: app-extension
     platform: iOS

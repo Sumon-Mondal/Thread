@@ -624,12 +624,13 @@ public struct SettingsView: View {
                             .font(.system(size: 9.5, weight: .bold))
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text("Dual-Engine Active")
+                        let usesElevenLabs = elevenLabsKeyInput.hasPrefix("sk_") || ThreadSpeechAnnouncer.shared.elevenLabsApiKey.hasPrefix("sk_")
+                        Text(usesElevenLabs ? "ElevenLabs Active" : "Apple Voice")
                             .font(.system(size: 8.5, weight: .bold))
-                            .foregroundColor(.green)
+                            .foregroundColor(usesElevenLabs ? .green : .secondary)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(Color.green.opacity(0.15))
+                            .background((usesElevenLabs ? Color.green : Color.white).opacity(0.15))
                             .cornerRadius(4)
                     }
 

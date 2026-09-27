@@ -46,7 +46,21 @@ function VuMeter() {
 }
 
 export function TopNav() {
-  const { elapsed, playing, mode, play, pause, reset, nextMoment, setMode, scenario, setScenario } = useDemo();
+  const {
+    elapsed,
+    playing,
+    mode,
+    play,
+    pause,
+    reset,
+    nextMoment,
+    setMode,
+    scenario,
+    setScenario,
+    isDrivingMode,
+    toggleDrivingMode,
+    sendReaction,
+  } = useDemo();
   const live = playing || mode === "live";
 
   return (
@@ -154,6 +168,31 @@ export function TopNav() {
             <Mic className="size-3.5" />
             <span className="hidden 2xl:inline">{mode === "demo" ? "Live Mic" : "Judge Demo"}</span>
           </button>
+
+          <button
+            onClick={toggleDrivingMode}
+            title={isDrivingMode ? "Driving Copilot Active (Voice Announced)" : "Enable Hands-Free Driving Copilot"}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition",
+              isDrivingMode
+                ? "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50"
+                : "text-muted-foreground hover:bg-white/10 hover:text-foreground",
+            )}
+          >
+            <span>🚗</span>
+            <span className="hidden sm:inline">{isDrivingMode ? "Driving ON" : "Driving"}</span>
+          </button>
+
+          {isDrivingMode && (
+            <button
+              onClick={() => sendReaction("👍")}
+              title="Broadcast 👍 Thumbs Up Reaction to Meeting"
+              className="flex items-center gap-1 rounded-lg bg-blue-500/25 px-2.5 py-1 text-[11px] font-bold text-blue-300 ring-1 ring-blue-500/40 transition hover:bg-blue-500/40"
+            >
+              <span>👍</span>
+              <span>Like</span>
+            </button>
+          )}
 
           <SettingsDialog />
         </div>

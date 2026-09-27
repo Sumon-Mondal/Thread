@@ -33,10 +33,15 @@ public class ThreadSpeechAnnouncer: NSObject, AVSpeechSynthesizerDelegate, AVAud
     public func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
             try session.setActive(true)
         } catch {
-            print("[ThreadSpeech] AVAudioSession config error: \(error.localizedDescription)")
+            do {
+                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+                try session.setActive(true)
+            } catch {
+                print("[ThreadSpeech] AVAudioSession config error: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -66,23 +71,21 @@ public class ThreadSpeechAnnouncer: NSObject, AVSpeechSynthesizerDelegate, AVAud
         if speechSynthesizer.isSpeaking {
             speechSynthesizer.stopSpeaking(at: .immediate)
         }
+        // Reinstantiate synthesizer to prevent internal audio unit deadlock in iOS
+        speechSynthesizer = AVSpeechSynthesizer()
+        speechSynthesizer.delegate = self
 
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
             ?? AVSpeechSynthesisVoice(language: Locale.current.identifier)
-            ?? AVSpeechSynthesisVoice(language: AVSpeechSynthesisVoice.currentLanguageCode())
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.96
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.98
         utterance.pitchMultiplier = 1.0
         utterance.volume = 1.0
-        utterance.preUtteranceDelay = 0.05
-        utterance.postUtteranceDelay = 0.1
+        utterance.preUtteranceDelay = 0.02
+        utterance.postUtteranceDelay = 0.05
 
         isSpeaking = true
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
-            guard let self = self else { return }
-            self.speechSynthesizer.speak(utterance)
-        }
+        speechSynthesizer.speak(utterance)
     }
 
     private func speakWithElevenLabs(text: String, completion: @escaping (Bool) -> Void) {

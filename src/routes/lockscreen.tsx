@@ -18,7 +18,7 @@ export const Route = createFileRoute("/lockscreen")({
 });
 
 function LockScreen() {
-  const { elapsed } = useDemo();
+  const { elapsed, isDrivingMode, toggleDrivingMode, sendReaction } = useDemo();
   const now = new Date();
   const time = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, "0")}`;
   const date = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -34,7 +34,29 @@ function LockScreen() {
         <div className="mt-16 text-center">
           <p className="text-sm font-medium text-white/70">{date}</p>
           <p className="mt-1 text-7xl font-bold tracking-tight text-white/95">{time}</p>
-          <p className="meta-chip mt-2 text-white/40">Driving mode · Thread is listening</p>
+          
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <button
+              onClick={toggleDrivingMode}
+              className={`meta-chip rounded-full px-3 py-1 font-semibold transition ${
+                isDrivingMode
+                  ? "bg-amber-500/25 text-amber-300 ring-1 ring-amber-500/50"
+                  : "bg-white/10 text-white/60 hover:bg-white/15 hover:text-white"
+              }`}
+            >
+              🚗 {isDrivingMode ? "Driving Mode: ON (Speech Active)" : "Tap to Enable Driving Mode"}
+            </button>
+
+            {isDrivingMode && (
+              <button
+                onClick={() => sendReaction("👍")}
+                className="flex items-center gap-1 rounded-full bg-blue-500/30 px-3 py-1 text-xs font-bold text-blue-200 ring-1 ring-blue-400/50 transition hover:bg-blue-500/40"
+              >
+                <span>👍</span>
+                <span>Like</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Live Activity */}

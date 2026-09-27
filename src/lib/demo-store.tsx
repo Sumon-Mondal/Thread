@@ -18,6 +18,7 @@ import {
   type TranscriptLine,
 } from "./demo-data";
 import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_EMAIL, isSarahFollowUp } from "./demo-recipient";
+import { speakAloud } from "./speech-announcer";
 
 export type EngineMode = "demo" | "live";
 
@@ -36,6 +37,7 @@ interface DemoState {
   screenShared: boolean;
   latestMoment: Moment | null;
   liveLines: { id: string; text: string; committed: boolean }[];
+  isDrivingMode: boolean;
 }
 
 export interface ApproveResult {
@@ -59,6 +61,8 @@ interface DemoApi extends DemoState {
   addMoment: (m: Moment) => void;
   addAction: (a: AgentAction) => void;
   registerQr: (url: string, source: string) => void;
+  toggleDrivingMode: () => void;
+  sendReaction: (emoji?: string) => void;
 }
 
 // Keep one context instance across hot reloads so provider and consumers always match.
@@ -276,9 +280,67 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }
   }, [chat, addAction]);
 
+  const [isDrivingMode, setIsDrivingMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("thread_is_driving_mode") === "true";
+    }
+    return false;
+  });
+
+  const toggleDrivingMode = useCallback(() => {
+    setIsDrivingMode((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("thread_is_driving_mode", String(next));
+      }
+      if (next) {
+        speakAloud("Driving copilot active. Live meeting announcements enabled.", true);
+      }
+      return next;
+    });
+  }, []);
+
+  const sendReaction = useCallback((emoji: string = "👍") => {
+    setSentChat((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        from: "You (Driving Copilot)",
+        text: `${emoji} (Reaction)`,
+        timeSec: elapsedRef.current,
+        reactions: [emoji],
+      },
+    ]);
+    speakAloud(`Sent thumbs up reaction to meeting`, true);
+  }, []);
+
+  const lastSpokenIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!lastLine || lastSpokenIdRef.current === lastLine.id) return;
+    lastSpokenIdRef.current = lastLine.id;
+
+    let phrase = `${lastLine.speaker} is speaking`;
+    if (lastLine.id === "t12b" || lastLine.text.includes("MLH")) {
+      phrase = "Caroline is sharing her work experience in MLH";
+    } else if (lastLine.id === "t12c" || lastLine.text.includes("STAR")) {
+      phrase = "Steve is talking about STAR Method of interview";
+    } else if (lastLine.id === "t14" || lastLine.text.includes("waste management")) {
+      phrase = "Priya is talking about waste management";
+    } else if (lastLine.id === "t3") {
+      phrase = "Sarah is announcing Summer 2027 SWE internships";
+    } else if (lastLine.id === "t5") {
+      phrase = "Michael is sharing the application portal QR code";
+    }
+    speakAloud(phrase);
+  }, [lastLine]);
+
   const value: DemoApi = {
     mode,
     scenario,
+    isDrivingMode,
+    toggleDrivingMode,
+    sendReaction,
     playing,
     elapsed,
     transcript,

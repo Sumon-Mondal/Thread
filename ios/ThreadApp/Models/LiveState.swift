@@ -207,7 +207,7 @@ public class ThreadSessionManager: ObservableObject {
             refreshIdleTimer()
             if isDrivingMode {
                 showNotification(text: "🚗 Hands-Free Driving Mode Active · Voice Announced")
-                speakAloud("Driving copilot active. Live meeting polls, forms, and deadlines will be announced aloud.")
+                speakAloud("Driving copilot active. Live meeting announcements enabled.", force: true)
             } else {
                 showNotification(text: "Driving Mode Disabled")
             }

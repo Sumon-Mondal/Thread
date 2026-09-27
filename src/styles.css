@@ -1,0 +1,234 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@source "../node_modules/streamdown/dist/*.js";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Thread design system — Apple Liquid Glass on obsidian.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-glass: var(--glass);
+  --color-live: var(--live);
+  --color-sapphire: var(--sapphire);
+  --color-indigo-glow: var(--indigo-glow);
+  --font-sans: "Inter", -apple-system, "SF Pro Display", system-ui, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.145 0.012 264); /* #07080c-ish obsidian */
+  --foreground: oklch(0.96 0.005 250);
+  --card: oklch(0.175 0.014 264);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.175 0.014 264);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: oklch(0.62 0.19 256); /* sapphire blue */
+  --primary-foreground: oklch(0.98 0.003 247);
+  --secondary: oklch(0.22 0.016 264);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.22 0.016 264);
+  --muted-foreground: oklch(0.65 0.02 256);
+  --accent: oklch(0.25 0.02 264);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: oklch(0.63 0.21 25);
+  --destructive-foreground: oklch(0.98 0.003 247);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.62 0.19 256);
+  --chart-1: oklch(0.62 0.19 256);
+  --chart-2: oklch(0.7 0.15 190);
+  --chart-3: oklch(0.65 0.2 300);
+  --chart-4: oklch(0.75 0.15 85);
+  --chart-5: oklch(0.7 0.19 40);
+  --sidebar: oklch(0.16 0.013 264);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-primary: oklch(0.62 0.19 256);
+  --sidebar-primary-foreground: oklch(0.98 0.003 247);
+  --sidebar-accent: oklch(0.22 0.016 264);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.62 0.19 256);
+  --glass: oklch(0.19 0.015 264 / 78%);
+  --live: oklch(0.63 0.23 25);
+  --sapphire: oklch(0.62 0.19 256);
+  --indigo-glow: oklch(0.6 0.2 280);
+}
+
+.dark {
+  /* Thread is dark-only; mirror root values */
+  --background: oklch(0.145 0.012 264);
+  --foreground: oklch(0.96 0.005 250);
+  --card: oklch(0.175 0.014 264);
+  --card-foreground: oklch(0.96 0.005 250);
+  --popover: oklch(0.175 0.014 264);
+  --popover-foreground: oklch(0.96 0.005 250);
+  --primary: oklch(0.62 0.19 256);
+  --primary-foreground: oklch(0.98 0.003 247);
+  --secondary: oklch(0.22 0.016 264);
+  --secondary-foreground: oklch(0.96 0.005 250);
+  --muted: oklch(0.22 0.016 264);
+  --muted-foreground: oklch(0.65 0.02 256);
+  --accent: oklch(0.25 0.02 264);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: oklch(0.63 0.21 25);
+  --destructive-foreground: oklch(0.98 0.003 247);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.62 0.19 256);
+  --chart-1: oklch(0.62 0.19 256);
+  --chart-2: oklch(0.7 0.15 190);
+  --chart-3: oklch(0.65 0.2 300);
+  --chart-4: oklch(0.75 0.15 85);
+  --chart-5: oklch(0.7 0.19 40);
+  --sidebar: oklch(0.16 0.013 264);
+  --sidebar-foreground: oklch(0.96 0.005 250);
+  --sidebar-primary: oklch(0.62 0.19 256);
+  --sidebar-primary-foreground: oklch(0.98 0.003 247);
+  --sidebar-accent: oklch(0.22 0.016 264);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.62 0.19 256);
+  --glass: oklch(0.19 0.015 264 / 78%);
+  --live: oklch(0.63 0.23 25);
+  --sapphire: oklch(0.62 0.19 256);
+  --indigo-glow: oklch(0.6 0.2 280);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    letter-spacing: -0.015em;
+  }
+}
+
+/* Ambient obsidian canvas with sapphire/indigo radial glows */
+@utility canvas-bg {
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgb(59 130 246 / 0.12), transparent 60%),
+    radial-gradient(1000px 500px at 85% 0%, rgb(99 102 241 / 0.08), transparent 55%),
+    var(--color-background);
+}
+
+/* Liquid Glass panel */
+@utility glass-panel {
+  background: var(--color-glass);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgb(255 255 255 / 0.08);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06),
+    0 8px 32px rgb(0 0 0 / 0.35);
+  border-radius: var(--radius-xl);
+}
+
+/* Quiet minimalist panel — softer glass, hairline border */
+@utility panel {
+  background: rgb(24 24 27 / 0.35);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgb(255 255 255 / 0.05);
+  border-radius: var(--radius-2xl);
+}
+
+/* Uppercase monospace metadata chip */
+@utility meta-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* Soft-edge scroll mask */
+@utility soft-mask-b {
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+}
+
+/* Pulsing live dot */
+@utility live-dot {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 9999px;
+    background: var(--color-live);
+    opacity: 0.4;
+    animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+@keyframes live-ping {
+  0% { transform: scale(0.6); opacity: 0.5; }
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes eq-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@utility animate-eq {
+  animation: eq-bar 0.9s ease-in-out infinite;
+  transform-origin: bottom;
+}
+
+/* Thin styled scrollbar */
+@utility thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.12) transparent;
+  &::-webkit-scrollbar { width: 5px; }
+  &::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.12); border-radius: 999px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+}

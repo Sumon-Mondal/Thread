@@ -1,0 +1,58 @@
+# Thread — Build Roadmap
+
+- [x] Plan approved
+- [x] Design system + app shell
+- [x] Demo engine (scripted Discovery Day meeting store)
+- [x] Live Meeting cockpit, Lock screen + iOS views, Post-Meeting, Transcript, Analytics
+- [x] ElevenLabs live mic wiring (server token + Scribe realtime)
+- [x] ElevenLabs key permissions fixed (token verified)
+- [ ] UI polish pass across all pages (in progress — nav fixed)
+- [x] Integrations page: Calendar, Google Meet, Zoom, Slack, Notion (simulated connect states)
+- [x] Dynamic Island component: expandable, with action options (approve/remind/review)
+- [x] Notification system: toast alerts when moments are detected
+- [x] Dynamic calendar widget (upcoming events, meeting join)
+- [x] REC button fix: explicit "● Live Mic — Stop" button; verified all pages error-free
+- [x] Hide iOS-specific UI (nav tabs, island, lock-screen widget) — web app only; /watch, /ios-preview, /lockscreen unlinked
+- [ ] Add demo examples/scenarios to show and demonstrate to judges (in progress: scenario switcher + diatom lab scenario)
+- [ ] Connect Google Calendar/Meet/Zoom: sync upcoming meetings, show platform, open meeting from calendar (App User Connectors; needs Lovable Cloud auth)
+- [ ] In-app notifications + preferences: meeting reminders, recording/transcript-ready alerts
+- [ ] AI transcript extraction: host pastes/uploads transcript → AI Gateway extracts decisions, action items, owners
+- [ ] AI moment detection for live mode
+- [ ] Lovable Cloud: auth + persistence
+- [x] Final judge-ready verification of every page (18 routes 200, 0 page errors; 6 forms fill 100%; real Gmail send, real Google Calendar event, queue approval real send — all verified)
+- [x] LAST: judges' presentation (.pptx) explaining what/how Thread uses each technology — Thread_Judges_Deck.pptx (13 slides, dark obsidian theme)
+- [x] Past meetings library (internship, class, work) with links/QR/forms
+- [x] Type-to-agent: fills forms/job apps, drafts emails, reads uploaded PDF/DOCX/TXT
+- [x] Live meeting: real QR in chat decoded in browser + Ask Thread box
+- [x] Demo Tour for judges
+- [x] Real email sending via Gmail
+- [ ] Asana dropped (user has no access) — action items go to Google Calendar instead
+- [x] Full internship + job forms, inbox delivery check, Google Calendar for action items, hidden native watch/widget Swift code
+- [ ] Real meeting transcript (waiting on user file)
+- [x] Notifications + preferences page (Alerts): reminders, recording/transcript ready, moments
+- [x] Google Calendar connected (live events, Zoom/Meet/Teams link detection, join directly)
+- [x] AI Insights walked end to end; fixed blank owner
+- [x] Sample resume button → larger icon-only, polished
+- [x] Alerts: multi reminders, platforms, quiet hours, per-meeting recording/transcript choices
+- [x] AI Insights prompt tightened (owners, exact dates, no duplicates) — verified
+- [x] Agent fills job application + class form from transcript with confirmation card
+- [x] Live Meeting "Add to Calendar" with Zoom link (real Google Calendar insert verified)
+- [x] Right-click / long-press agent menu on all text (live transcript, moments, Transcript, Post-Meeting, meeting details, Insights timeline)
+- [x] Use Sumon resume as sample resume
+- [x] Removed Transcript page (route + nav link); transcript-ready alerts now open AI Insights
+- [x] Docked Zoom window: click to expand back to fullscreen, minimize button returns to corner
+- [x] Declutter the Agent box on Live Meeting (AgentConsole)
+- [x] Chat texts (links, emails, requests) from participants become Agent Action Queue items
+- [x] Screen-share panel: replace photo with real QR code of the slide link
+- [x] AgentConsole composer: fixed cut-off send button (min-w-0/shrink-0)
+- [x] Live Meeting panels: middle column now fills height, agent box overflow fixed
+- [x] Pre-fill "Send completed form to" email per form (recruiter/professor/ops contacts)
+- [x] AI Insights timeline: clicking a line now shows "Ask the AI agent" button
+- [x] Right-click / long-press menu replaces the timeline's visible agent button
+- [x] Meeting chat composer, agent replies and refreshed brand logo
+- [x] Deploy readiness: all screens verified, browser interactions pass, connected services (Gmail, Calendar, AI) verified end-to-end; head metadata present on all routes
+- [x] Replace logo with a blue T; hidden iOS/watch reviewed and kept out of the web app
+- [x] Agent form entry auto-fills after one click with notifications; contextual right-click/long-press agent action fixed and verified
+- [x] Agent fills every answer supported by supplied facts, identifies unsupported answers and never invents consent or eligibility to reach 100%
+- [x] Replace Sarah queue's invented recipient addresses with the user's connected Gmail and verify approval sends safely
+- [x] Hackathon category: Best Education Hack (primary), Best Linguistics Hack (secondary)

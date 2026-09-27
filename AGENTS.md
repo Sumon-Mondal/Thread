@@ -13,3 +13,5 @@
 - /panel hides the top nav, tour and call overlay (ChromeGate in __root) — it must fit a narrow window beside Zoom/Meet.
 - Meeting chat messages and approved scripted replies live in DemoProvider so the main meeting and side panel share one conversation.
 - Sarah's demo email recipient lives in the shared demo-recipient constant, and its queue approval must send successfully before marking executed, so mock contacts cannot receive mail and failed sends stay pending.
+- Always run what you changed and show it — a successful build is not verification. Web changes: run the dev server and open the affected route. iOS changes: `xcodegen generate`, build, then `simctl install`/`launch` on a booted device and screenshot the screen you touched.
+- This machine's Xcode has no `Simulator.app`, so simulator devices only run headlessly: screenshots work via `simctl io <device> screenshot`, but tapping does not. To reach a state behind a tap, override the stored preference with a launch argument (e.g. `simctl launch <device> com.sumonmondal.ThreadApp -Thread_homeDensity standard`).

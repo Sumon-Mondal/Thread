@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
-import { Mic, RotateCcw, Video } from "lucide-react";
+import { Mic, RotateCcw, SkipForward, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatClock, SCENARIO_LIST } from "@/lib/demo-data";
 import { useDemo } from "@/lib/demo-store";
 import { cn } from "@/lib/utils";
 import { startZoomIntro } from "@/components/ZoomCallIntro";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import threadLogo from "@/assets/thread-t.svg";
 
 const NAV = [
@@ -45,7 +46,7 @@ function VuMeter() {
 }
 
 export function TopNav() {
-  const { elapsed, playing, mode, play, pause, reset, setMode, scenario, setScenario } = useDemo();
+  const { elapsed, playing, mode, play, pause, reset, nextMoment, setMode, scenario, setScenario } = useDemo();
   const live = playing || mode === "live";
 
   return (
@@ -121,6 +122,14 @@ export function TopNav() {
                 {playing ? "Pause" : elapsed > 0 ? "Resume" : "Start Meeting"}
               </button>
               <button
+                onClick={nextMoment}
+                title="Next moment"
+                aria-label="Next moment"
+                className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+              >
+                <SkipForward className="size-3.5" />
+              </button>
+              <button
                 onClick={reset}
                 title="Reset demo"
                 className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
@@ -139,12 +148,14 @@ export function TopNav() {
           )}
           <button
             onClick={() => setMode(mode === "demo" ? "live" : "demo")}
-            title={mode === "demo" ? "Use Live Mic" : "Use Demo"}
+            title={mode === "demo" ? "Switch to Live Mic" : "Switch to Judge Demo"}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
           >
             <Mic className="size-3.5" />
-            <span className="hidden 2xl:inline">{mode === "demo" ? "Live Mic" : "Demo"}</span>
+            <span className="hidden 2xl:inline">{mode === "demo" ? "Live Mic" : "Judge Demo"}</span>
           </button>
+
+          <SettingsDialog />
         </div>
       </div>
     </header>

@@ -109,7 +109,7 @@ export function MeetingTimeline({ onAnalyze }: { onAnalyze: (text: string, title
           <div className="min-w-0">
             <h2 className="text-base font-semibold">{m.title}</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">{m.summary}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">Tip: right-click or long-press any line for more options.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/70">Tip: click any line to expand it and talk to the AI agent; right-click or long-press for more options.</p>
           </div>
           <button onClick={() => onAnalyze(m.lines.map((l) => `[${formatClock(l.t)}] ${l.speaker}: ${l.text}`).join("\n"), m.title)}
             className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/85">
@@ -124,7 +124,15 @@ export function MeetingTimeline({ onAnalyze }: { onAnalyze: (text: string, title
             return (
               <li key={l.id}>
                 <button
-                  onClick={() => setOpen(isOpen ? null : l.id)}
+                  onClick={() => {
+                    setOpen(isOpen ? null : l.id);
+                    if (!isOpen) {
+                      setAgent({ lineId: l.id, reply: "", busy: false });
+                      setAgentInput("");
+                    } else if (agent?.lineId === l.id) {
+                      setAgent(null);
+                    }
+                  }}
                   onContextMenu={(e) => { e.preventDefault(); openMenu(l.id, e.clientX, e.clientY); }}
                   onTouchStart={(e) => {
                     const t = e.touches[0];

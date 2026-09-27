@@ -44,7 +44,7 @@ export const FORMS: FormDef[] = [
     title: "Summer Engineering Internship Application",
     org: "Nova Dynamics",
     meetingId: "discovery-day",
-    due: "Oct 10, 2026",
+    due: "Oct 18, 2026",
     fields: [
       { key: "fullName", label: "Full name" },
       { key: "email", label: "Email", type: "email" },
@@ -180,12 +180,12 @@ export const PAST_MEETINGS: PastMeeting[] = [
     platform: "Google Meet",
     date: "Sep 24, 2026 · 2:00 PM",
     duration: "42 min",
-    attendees: ["Sarah Chen (Recruiter)", "Michael Torres (Eng Manager)", "You"],
+    attendees: ["Sarah Chen (University Recruiting Lead)", "Michael Torres (Staff Engineer)", "You"],
     summary:
-      "Nova Dynamics presented its Summer Engineering Internship. Applications open through Oct 10; the portal was shared as a QR code on a slide and a link in chat. Michael highlighted React, TypeScript and ML experience.",
+      "Nova Dynamics presented its Summer 2027 Software Engineering Internship. Applications close Oct 18 at 11:59 PM ET; the portal was shared as a QR code on a slide and a link in chat. Michael highlighted Python fundamentals and distributed systems experience.",
     decisions: ["You will apply for the Software Engineering Intern role", "Follow-up coffee chat with Michael next week"],
     actionItems: [
-      { task: "Submit internship application", owner: "You", due: "Oct 10" },
+      { task: "Submit internship application", owner: "You", due: "Oct 18" },
       { task: "Email Sarah a thank-you note", owner: "You", due: "Sep 26" },
       { task: "Send coffee chat invite", owner: "Michael Torres", due: "Oct 1" },
     ],
@@ -196,10 +196,10 @@ export const PAST_MEETINGS: PastMeeting[] = [
     formIds: ["internship-app", "job-app"],
     contacts: [
       { name: "Sarah Chen", email: SARAH_DEMO_RECIPIENT, role: "Recruiter (demo recipient: your inbox)" },
-      { name: "Michael Torres", email: "m.torres@novadynamics.io", role: "Engineering Manager" },
+      { name: "Michael Torres", email: "m.torres@novadynamics.io", role: "Staff Engineer" },
     ],
     transcript:
-      `Sarah: Welcome to Discovery Day. Applications for the Summer Engineering Internship close October 10. Michael: We're looking for React, TypeScript and some ML exposure. Scan the QR on this slide or use the link in chat. Sarah's demo follow-ups are routed to your inbox at ${SARAH_DEMO_RECIPIENT}.`,
+      `Sarah: Welcome to Discovery Day. Applications for the Summer 2027 Software Engineering Internship close October 18 at 11:59 PM Eastern. Michael: We look for strong fundamentals in Python and some exposure to distributed systems. Scan the QR on this slide or use the link in chat. Sarah's demo follow-ups are routed to your inbox at ${SARAH_DEMO_RECIPIENT}.`,
   },
   {
     id: "bio-204",

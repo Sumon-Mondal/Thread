@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mic, Pause, Play, RotateCcw } from "lucide-react";
+import { Mic, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 import { MomentsPanel, TranscriptPanel, AgentQueuePanel, ChatPanel, formatTime } from "@/components/LivePanels";
 import { useDemo } from "@/lib/demo-store";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ const TABS = ["Moments", "Transcript", "Queue", "Agent"] as const;
 type Tab = (typeof TABS)[number];
 
 function SidePanel() {
-  const { elapsed, playing, play, pause, reset, mode, setMode, actions, moments, scenario } = useDemo();
+  const { elapsed, playing, play, pause, reset, nextMoment, mode, setMode, actions, moments, scenario } = useDemo();
   const [tab, setTab] = useState<Tab>("Moments");
   const staged = actions.filter((a) => a.status === "staged").length;
   const btn = "flex size-8 items-center justify-center rounded-lg bg-white/5 text-foreground/80 hover:bg-white/10";
@@ -43,6 +43,7 @@ function SidePanel() {
             <button aria-label={playing ? "Pause" : "Play"} onClick={playing ? pause : play} className={btn}>
               {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
             </button>
+            <button aria-label="Next moment" onClick={nextMoment} className={btn}><SkipForward className="size-4" /></button>
             <button aria-label="Reset" onClick={reset} className={btn}><RotateCcw className="size-4" /></button>
           </>
         )}

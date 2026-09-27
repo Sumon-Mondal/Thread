@@ -16,7 +16,7 @@ export interface ExtractionResult {
 export const extractMeetingInsights = createServerFn({ method: "POST" })
   .inputValidator((data) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<ExtractionResult> => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
+    const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
     if (!apiKey) throw new Error("AI is not configured for this app yet.");
 
     const { callResponses } = await import("./ai-gateway.server");

@@ -75,10 +75,17 @@ export function AgentText({
       <span
         className="contents"
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu(clamp(e.clientX, e.clientY)); }}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          const { clientX, clientY } = e;
+          pressTimer.current = setTimeout(() => setMenu(clamp(clientX, clientY)), 1000);
+        }}
+        onMouseUp={cancelPress}
+        onMouseLeave={cancelPress}
         onTouchStart={(e) => {
           const t = e.touches[0];
           if (!t) return;
-          pressTimer.current = setTimeout(() => setMenu(clamp(t.clientX, t.clientY)), 500);
+          pressTimer.current = setTimeout(() => setMenu(clamp(t.clientX, t.clientY)), 1000);
         }}
         onTouchEnd={cancelPress}
         onTouchMove={cancelPress}
@@ -88,17 +95,33 @@ export function AgentText({
 
       {menu && (
         <div
-          className="fixed z-50 w-64 overflow-hidden rounded-xl border border-border bg-popover/95 p-1 shadow-2xl backdrop-blur-xl"
+          className="fixed z-50 w-72 overflow-hidden rounded-xl border border-border bg-popover/95 p-1.5 shadow-2xl backdrop-blur-xl"
           style={{ left: menu.x, top: menu.y }}
           onClick={(e) => e.stopPropagation()}
         >
-          <p className="line-clamp-2 px-3 py-1.5 text-[11px] text-muted-foreground">“{preview}”</p>
+          <div className="flex items-center justify-between border-b border-white/5 px-2 py-1 text-[10px] font-bold text-primary">
+            <span>MINUTE MOMENT INSPECTOR</span>
+            <span className="text-muted-foreground">1s Hold ✦</span>
+          </div>
+          <p className="line-clamp-2 px-2.5 py-1.5 text-[11px] text-foreground/90 font-medium">“{preview}”</p>
+          <button
+            onClick={() => {
+              const pos = menu;
+              setMenu(null);
+              setInput("");
+              setAgent({ pos, reply: "", busy: true });
+              void ask("What happened at this moment in the meeting? Explain in detail and identify any dates, deadlines, email contacts, or action items.");
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-primary transition hover:bg-primary/10"
+          >
+            <Bot className="size-4 text-primary" /> What happened here? (AI Summary)
+          </button>
           {onDetails && (
             <button
               onClick={() => { onDetails(); setMenu(null); }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-white/10"
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition hover:bg-white/10"
             >
-              <Eye className="size-4 text-primary" /> See exactly what was said
+              <Eye className="size-3.5 text-muted-foreground" /> See verbatim speech
             </button>
           )}
           <button
@@ -107,36 +130,64 @@ export function AgentText({
               setMenu(null);
               setInput("");
               setAgent({ pos, reply: "", busy: true });
-              void ask("Summarize what this means and suggest any useful follow-up action.");
+              void ask("Were there any deadlines, dates, or emails mentioned here that I should follow up on?");
             }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition hover:bg-white/10"
           >
-            <Bot className="size-4 text-primary" /> Ask the AI agent to act on this
+            <Bot className="size-3.5 text-muted-foreground" /> Check dates & contacts
           </button>
           <button
             onClick={() => { void navigator.clipboard?.writeText(preview).catch(() => {}); setMenu(null); }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition hover:bg-white/10"
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition hover:bg-white/10"
           >
-            <Copy className="size-4 text-primary" /> Copy text
+            <Copy className="size-3.5 text-muted-foreground" /> Copy text
           </button>
         </div>
       )}
 
       {agent && (
         <div
-          className="fixed z-50 w-80 rounded-xl border border-primary/30 bg-popover/95 p-3 shadow-2xl backdrop-blur-xl"
+          className="fixed z-50 w-88 max-w-[92vw] rounded-xl border border-primary/30 bg-popover/95 p-3.5 shadow-2xl backdrop-blur-xl"
           style={{ left: agent.pos.x, top: agent.pos.y }}
         >
           <div className="flex items-center gap-2">
             <span className="flex size-7 items-center justify-center rounded-full bg-primary/20"><Bot className="size-4 text-primary" /></span>
-            <p className="text-sm font-medium">Thread Agent</p>
+            <div>
+              <p className="text-xs font-bold text-foreground">Thread Agentic AI</p>
+              <p className="text-[10px] text-muted-foreground">Moment Intelligence</p>
+            </div>
             <button onClick={() => setAgent(null)} aria-label="Close agent" className="ml-auto rounded p-1 text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
           </div>
           {agent.busy ? (
-            <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin text-primary" /> Working on it…</p>
+            <p className="mt-2.5 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-4 animate-spin text-primary" /> Analyzing what happened…</p>
           ) : (
-            <p className="mt-2 text-sm leading-relaxed text-foreground/90">{agent.reply}</p>
+            <div className="mt-2.5 max-h-56 overflow-y-auto thin-scroll space-y-2 pr-1 text-xs leading-relaxed text-foreground/90 whitespace-pre-wrap">
+              {agent.reply}
+            </div>
           )}
+          <div className="mt-2 flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => void ask("What happened at this moment?")}
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+            >
+              💡 What happened?
+            </button>
+            <button
+              type="button"
+              onClick={() => void ask("Any deadlines or dates mentioned?")}
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+            >
+              📅 Any dates?
+            </button>
+            <button
+              type="button"
+              onClick={() => void ask("Who should I email about this?")}
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/20"
+            >
+              ✉️ Email contact?
+            </button>
+          </div>
           <form
             onSubmit={(e) => { e.preventDefault(); const q = input.trim(); if (q) { setInput(""); void ask(q); } }}
             className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-background/50 px-2.5 py-1.5"
@@ -144,10 +195,10 @@ export function AgentText({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Tell the agent what to do with this…"
-              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+              placeholder="Ask what happened or tell Agent to act…"
+              className="flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
             />
-            <button type="submit" aria-label="Send to agent" className="text-primary hover:brightness-110"><CornerDownLeft className="size-4" /></button>
+            <button type="submit" aria-label="Send to agent" className="text-primary hover:brightness-110"><CornerDownLeft className="size-3.5" /></button>
           </form>
         </div>
       )}

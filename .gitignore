@@ -16,8 +16,16 @@ dist-ssr
 .nitro
 *.local
 
-# Wrangler / Cloudflare
-.wrangler/
+# Environment
+.env
+.env.*
+# Local iOS secrets (see ios/Config/Secrets.xcconfig.example)
+ios/Config/Secrets.xcconfig
+# Connector state the dev server writes at runtime (account emails, calendar events)
+.thread_connectors.json
+# Office lock files and presentation scratch
+~$*
+.presentation-build/
 .dev.vars
 
 # Editor directories and files

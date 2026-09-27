@@ -17,6 +17,7 @@ import {
   type Scenario,
   type TranscriptLine,
 } from "./demo-data";
+import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_EMAIL, isSarahFollowUp } from "./demo-recipient";
 
 export type EngineMode = "demo" | "live";
 
@@ -37,13 +38,23 @@ interface DemoState {
   liveLines: { id: string; text: string; committed: boolean }[];
 }
 
+export interface ApproveResult {
+  ok: boolean;
+  error?: string;
+  delivered?: string;
+}
+
 interface DemoApi extends DemoState {
   play: () => void;
   pause: () => void;
   reset: () => void;
+  /** Jumps to the next scripted moment; past the last one it wraps the meeting up. */
+  nextMoment: () => void;
   setMode: (m: EngineMode) => void;
   setScenario: (id: string) => void;
   executeAction: (id: string) => void;
+  /** Approval from any surface (queue, iPhone). Sarah's follow-up only counts once the email is sent. */
+  approveAction: (id: string) => Promise<ApproveResult>;
   addLiveLine: (text: string, committed: boolean) => void;
   addMoment: (m: Moment) => void;
   addAction: (a: AgentAction) => void;
@@ -55,11 +66,16 @@ const g = globalThis as unknown as { __threadDemoCtx?: Context<DemoApi | null> }
 const DemoContext = g.__threadDemoCtx ?? (g.__threadDemoCtx = createContext<DemoApi | null>(null));
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<EngineMode>("demo");
+  const [mode, setModeState] = useState<EngineMode>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("thread_engine_mode");
+      if (saved === "demo" || saved === "live") return saved;
+    }
+    return "live";
+  });
   const [scenarioId, setScenarioId] = useState<string>("discovery");
   const scenario = SCENARIOS[scenarioId] ?? SCENARIOS["discovery"]!;
-  // Demo mode plays by itself — the meeting starts on load, no button press.
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [actions, setActions] = useState<AgentAction[]>([]);
   const [extraMoments, setExtraMoments] = useState<Moment[]>([]);
@@ -108,7 +124,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const activeSpeakerRole = mode === "live" ? "Attendee" : (lastLine?.role ?? scenario.defaultRole);
   const latestMoment = moments[moments.length - 1] ?? null;
   const screenShared =
-    mode === "demo" && elapsed >= scenario.screenShareStart && elapsed < scenario.endSec - 8;
+    mode === "demo" && elapsed >= scenario.screenShareStart && elapsed < scenario.screenShareEnd;
 
   // Sync scripted actions when the scenario changes
   useEffect(() => {
@@ -117,6 +133,13 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
+  const nextMoment = useCallback(() => {
+    // Every moment and every staged action, matching the iPhone's Next.
+    const times = [...new Set([...scenario.moments, ...scenario.actions].map((x) => x.timeSec))].filter((t) => t > 0).sort((a, b) => a - b);
+    const next = times.find((t) => t > elapsedRef.current);
+    setElapsed(next ?? scenario.endSec);
+    setPlaying(next !== undefined);
+  }, [scenario]);
   const reset = useCallback(() => {
     setElapsed(0);
     setActions(scenario.actions);
@@ -136,13 +159,18 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, []);
   const setMode = useCallback((m: EngineMode) => {
     setModeState(m);
-    if (m === "live") {
-      setPlaying(false);
-      setElapsed(0);
-    } else {
-      setPlaying(true); // back to demo → meeting resumes on its own
+    if (typeof window !== "undefined") {
+      localStorage.setItem("thread_engine_mode", m);
     }
-  }, []);
+    // Each mode starts a fresh meeting, so a QR decoded while on the live mic doesn't leak into the demo.
+    setElapsed(0);
+    setActions(scenario.actions);
+    setExtraMoments([]);
+    setLiveLines([]);
+    setSentChat([]);
+    seenQr.current.clear();
+    setPlaying(m === "demo");
+  }, [scenario]);
   const executeAction = useCallback((id: string) => {
     const action = actions.find((a) => a.id === id);
     if (action?.kind === "reply" && action.label.startsWith("Draft chat reply:")) {
@@ -151,6 +179,29 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     }
     setActions((prev) => prev.map((a) => (a.id === id ? { ...a, status: "executed" } : a)));
   }, [actions]);
+  const actionsRef = useRef(actions);
+  actionsRef.current = actions;
+  const approveAction = useCallback(async (id: string): Promise<ApproveResult> => {
+    const action = actionsRef.current.find((a) => a.id === id);
+    if (!action || action.status === "executed") return { ok: true };
+    if (isSarahFollowUp(action)) {
+      try {
+        const res = await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: SARAH_DEMO_RECIPIENT, ...SARAH_FOLLOW_UP_EMAIL }),
+        });
+        const result = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; delivered?: string };
+        if (!res.ok || !result.ok) return { ok: false, error: result.error ?? "Gmail could not send the email" };
+        executeAction(id);
+        return result.delivered ? { ok: true, delivered: result.delivered } : { ok: true };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : "Email could not be sent" };
+      }
+    }
+    executeAction(id);
+    return { ok: true };
+  }, [executeAction]);
   const addChatMessage = useCallback((text: string, isAgent = false) => {
     const trimmed = text.trim();
     if (!trimmed) return;
@@ -186,6 +237,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       speaker: source,
       timeSec: t,
       takeaway: isApply ? "QR code → internship application" : "QR code → shared resource",
+      headline: isApply ? "Application QR" : "Shared QR Code",
       detail: `Thread scanned the QR code from ${source} and decoded: ${url}`,
       link: url,
     });
@@ -205,7 +257,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     for (const c of chat) {
       if (c.isAgent) continue;
-      const email = c.text.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+      // Domain labels must follow each dot, so a sentence's final period isn't swallowed into the address.
+      const email = c.text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0];
       const link = c.text.match(/(https?:\/\/\S+|\/apply\/[\w-]+)/)?.[0];
       const request = /\b(please|rsvp|send|submit|email|register|sign up|due|by (mon|tues|wednes|thurs|fri)day)\b/i.test(c.text);
       if (!email && !link && !request) continue;
@@ -241,9 +294,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     play,
     pause,
     reset,
+    nextMoment,
     setMode,
     setScenario,
     executeAction,
+    approveAction,
     addLiveLine,
     addMoment,
     addAction,

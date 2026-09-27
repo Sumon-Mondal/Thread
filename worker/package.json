@@ -1,0 +1,14 @@
+{
+  "name": "thread-meeting-worker",
+  "version": "1.0.0",
+  "description": "Headless cloud virtual machine bot that joins Google Meet / Zoom to capture captions, chat, and slides.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "jsqr": "^1.4.0",
+    "puppeteer": "^24.4.0"
+  }
+}

@@ -22,6 +22,7 @@ import { Route as PostMeetingRouteImport } from './routes/post-meeting'
 import { Route as WatchRouteImport } from './routes/watch'
 import { Route as ApiAgentRouteImport } from './routes/api/agent'
 import { Route as ApiCalendarRouteImport } from './routes/api/calendar'
+import { Route as ApiDailyRouteImport } from './routes/api/daily'
 import { Route as ApiExtractRouteImport } from './routes/api/extract'
 import { Route as ApiLiveStateRouteImport } from './routes/api/live-state'
 import { Route as ApiSendEmailRouteImport } from './routes/api/send-email'
@@ -94,6 +95,11 @@ const ApiCalendarRoute = ApiCalendarRouteImport.update({
   path: '/api/calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDailyRoute = ApiDailyRouteImport.update({
+  id: '/api/daily',
+  path: '/api/daily',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExtractRoute = ApiExtractRouteImport.update({
   id: '/api/extract',
   path: '/api/extract',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/watch': typeof WatchRoute
   '/api/agent': typeof ApiAgentRoute
   '/api/calendar': typeof ApiCalendarRoute
+  '/api/daily': typeof ApiDailyRoute
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/watch': typeof WatchRoute
   '/api/agent': typeof ApiAgentRoute
   '/api/calendar': typeof ApiCalendarRoute
+  '/api/daily': typeof ApiDailyRoute
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/watch': typeof WatchRoute
   '/api/agent': typeof ApiAgentRoute
   '/api/calendar': typeof ApiCalendarRoute
+  '/api/daily': typeof ApiDailyRoute
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
@@ -205,6 +214,7 @@ export interface FileRouteTypes {
     | '/watch'
     | '/api/agent'
     | '/api/calendar'
+    | '/api/daily'
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
@@ -226,6 +236,7 @@ export interface FileRouteTypes {
     | '/watch'
     | '/api/agent'
     | '/api/calendar'
+    | '/api/daily'
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
@@ -247,6 +258,7 @@ export interface FileRouteTypes {
     | '/watch'
     | '/api/agent'
     | '/api/calendar'
+    | '/api/daily'
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
@@ -269,6 +281,7 @@ export interface RootRouteChildren {
   WatchRoute: typeof WatchRoute
   ApiAgentRoute: typeof ApiAgentRoute
   ApiCalendarRoute: typeof ApiCalendarRoute
+  ApiDailyRoute: typeof ApiDailyRoute
   ApiExtractRoute: typeof ApiExtractRoute
   ApiLiveStateRoute: typeof ApiLiveStateRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
@@ -370,6 +383,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/daily': {
+      id: '/api/daily'
+      path: '/api/daily'
+      fullPath: '/api/daily'
+      preLoaderRoute: typeof ApiDailyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/extract': {
       id: '/api/extract'
       path: '/api/extract'
@@ -429,6 +449,7 @@ const rootRouteChildren: RootRouteChildren = {
   WatchRoute: WatchRoute,
   ApiAgentRoute: ApiAgentRoute,
   ApiCalendarRoute: ApiCalendarRoute,
+  ApiDailyRoute: ApiDailyRoute,
   ApiExtractRoute: ApiExtractRoute,
   ApiLiveStateRoute: ApiLiveStateRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,

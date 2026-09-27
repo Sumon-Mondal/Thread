@@ -13,6 +13,8 @@ export function LiveStatePublisher() {
       const s = ref.current;
       if (!s.playing && s.elapsed === 0) return;
       const m = s.moments[s.moments.length - 1];
+      const headline = m ? m.takeaway.split(/[.:;]/)[0] ?? m.takeaway : (s.activeSpeaker ? `${s.activeSpeaker} speaking` : "Live Call");
+      const shortHeadline = headline.length > 35 ? `${headline.slice(0, 32)}…` : headline;
       void fetch("/api/live-state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -22,6 +24,8 @@ export function LiveStatePublisher() {
           elapsed: Math.floor(s.elapsed),
           speaker: (s.activeSpeaker || "").slice(0, 100),
           lastLine: (s.transcript[s.transcript.length - 1]?.text ?? "").slice(0, 500),
+          shortHeadline,
+          source: "web",
           momentCount: s.moments.length,
           latestMoment: m ? { type: m.type, takeaway: m.takeaway.slice(0, 300) } : null,
           actions: s.actions.slice(0, 20).map((a) => ({ id: a.id.slice(0, 60), label: a.label.slice(0, 200), status: a.status })),

@@ -9,19 +9,24 @@ const schema = z.object({
   elapsed: z.number().min(0).max(86400),
   speaker: z.string().max(100),
   lastLine: z.string().max(500),
+  shortHeadline: z.string().max(60).optional(),
+  source: z.enum(["web", "extension", "vm-bot", "ios"]).optional().default("web"),
   momentCount: z.number().int().min(0).max(1000),
   latestMoment: z.object({ type: z.string().max(30), takeaway: z.string().max(300) }).nullable(),
   actions: z.array(z.object({ id: z.string().max(60), label: z.string().max(200), status: z.string().max(20) })).max(20),
 });
 
-const command = z.object({ command: z.enum(["approve", "later"]), actionId: z.string().max(60).optional() });
-let commands: { command: "approve" | "later"; actionId?: string | undefined; at: string }[] = [];
+const command = z.object({
+  command: z.enum(["approve", "later", "dismiss", "submit"]),
+  actionId: z.string().max(60).optional(),
+});
+let commands: { command: "approve" | "later" | "dismiss" | "submit"; actionId?: string | undefined; at: string }[] = [];
 let snapshot: (z.infer<typeof schema> & { updatedAt: string }) | null = null;
 
 export const Route = createFileRoute("/api/live-state")({
   server: {
     handlers: {
-      GET: () => Response.json(snapshot ?? { playing: false, updatedAt: null }, { headers: { "Cache-Control": "no-store" } }),
+      GET: () => Response.json(snapshot ?? { playing: false, updatedAt: null, shortHeadline: "No active call" }, { headers: { "Cache-Control": "no-store" } }),
       POST: async ({ request }) => {
         const raw = await request.json().catch(() => null);
         const c = command.safeParse(raw);
@@ -30,7 +35,7 @@ export const Route = createFileRoute("/api/live-state")({
           return Response.json({ ok: true, queued: true });
         }
         const p = schema.safeParse(raw);
-        if (!p.success) return Response.json({ error: "Invalid snapshot" }, { status: 400 });
+        if (!p.success) return Response.json({ error: "Invalid snapshot", details: p.error.format() }, { status: 400 });
         snapshot = { ...p.data, updatedAt: new Date().toISOString() };
         const out = commands; commands = [];
         return Response.json({ ok: true, commands: out });

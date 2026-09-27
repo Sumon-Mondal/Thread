@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thread Cockpit</title>
+  <style>
+    :root {
+      --bg: #090d12;
+      --card-bg: rgba(255, 255, 255, 0.04);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --foreground: #f3f4f6;
+      --muted: #9ca3af;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-teal: #14b8a6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--foreground);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      padding: 12px 14px;
+      background: rgba(18, 24, 32, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-badge {
+      width: 24px;
+      height: 24px;
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    .brand h1 { font-size: 13px; font-weight: 700; }
+    .status-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    nav {
+      display: flex;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--card-border);
+      padding: 4px;
+      gap: 4px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 6px 0;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+    .tab-btn .badge {
+      background: rgba(245, 158, 11, 0.25);
+      color: var(--accent-amber);
+      padding: 1px 5px;
+      border-radius: 999px;
+      font-size: 9px;
+      margin-left: 4px;
+    }
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      position: relative;
+    }
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .moment-tag {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+    .tag-OPPORTUNITY { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .tag-DEADLINE { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .tag-RESOURCE { background: rgba(20, 184, 166, 0.2); color: #2dd4bf; border: 1px solid rgba(20, 184, 166, 0.4); }
+    .tag-DECISION { background: rgba(139, 92, 246, 0.2); color: #c084fc; border: 1px solid rgba(139, 92, 246, 0.4); }
+    .transcript-line {
+      font-size: 12px;
+      margin-bottom: 8px;
+      line-height: 1.45;
+    }
+    .transcript-speaker {
+      font-weight: 700;
+      color: #93c5fd;
+      margin-right: 4px;
+    }
+    .action-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--accent-amber);
+    }
+    .action-card.done {
+      border-left-color: var(--accent-green);
+    }
+    .action-btn {
+      margin-top: 8px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .action-btn:hover { background: var(--primary-hover); }
+    .action-btn.done {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+      cursor: default;
+    }
+    footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--card-border);
+      background: rgba(14, 18, 24, 0.9);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ask-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+    }
+    .ask-input:focus {
+      border-color: var(--primary);
+    }
+    .empty-state {
+      text-align: center;
+      color: var(--muted);
+      padding: 30px 16px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo-badge">T</div>
+      <div>
+        <h1 id="meeting-title">Thread Cockpit</h1>
+        <p id="meeting-subtitle" style="font-size: 10px; color: var(--muted);">Waiting for meeting…</p>
+      </div>
+    </div>
+    <div class="status-pill" id="status-pill">
+      <span class="live-dot"></span>
+      <span id="status-text">LISTENING</span>
+    </div>
+  </header>
+
+  <nav>
+    <button class="tab-btn active" data-tab="moments">Moments</button>
+    <button class="tab-btn" data-tab="transcript">Transcript</button>
+    <button class="tab-btn" data-tab="queue">Queue <span class="badge" id="queue-badge" style="display:none">0</span></button>
+    <button class="tab-btn" data-tab="agent">Ask Agent</button>
+  </nav>
+
+  <main id="tab-content">
+    <div class="empty-state">Observing meeting… Moments, links, and action items will appear here live.</div>
+  </main>
+
+  <footer>
+    <input type="text" id="agent-input" class="ask-input" placeholder="Ask Thread: e.g. 'Draft email' or 'Add to calendar'…" />
+  </footer>
+
+  <script src="side-panel.js"></script>
+</body>
+</html>

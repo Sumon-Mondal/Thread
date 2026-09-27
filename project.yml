@@ -1,0 +1,37 @@
+name: Thread
+options:
+  bundleIdPrefix: com.sumonmondal
+  deploymentTarget:
+    iOS: 17.0
+settings:
+  base:
+    DEVELOPMENT_TEAM: 9LM3PVXMMW
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  ThreadApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: ios/ThreadApp
+      - path: ios/ThreadWidget/ThreadActivityAttributes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sumonmondal.ThreadApp
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Thread
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    dependencies:
+      - target: ThreadWidget
+  ThreadWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ios/ThreadWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sumonmondal.ThreadApp.Widget
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Thread

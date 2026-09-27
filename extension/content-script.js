@@ -55,25 +55,23 @@
     return fallbackSpeaker && lines[0] ? { node: el, speaker: fallbackSpeaker, text: clean(lines[0]) } : null;
   }
 
-  // ---- Chat: a list of groups, each "sender, optional time, one line per message" ----
+  // ---- Chat: read as a run of "sender, time, messages…" so it doesn't depend on how the groups nest ----
 
-  function chatFromGroups(list) {
-    let groups = [...list.children];
-    if (groups.length === 1 && groups[0].children.length > 1) groups = [...groups[0].children];
+  function chatFromList(list) {
+    const lines = linesOf(list);
     const out = [];
-    for (const group of groups) {
-      const lines = linesOf(group);
-      if (lines.length < 2) continue;
-      const from = lines[0];
-      let start = 1;
-      let time = "";
-      if (TIME_RE.test(lines[1])) {
-        time = lines[1];
-        start = 2;
+    let from = null;
+    let time = "";
+    let n = 0;
+    for (let i = 0; i < lines.length; i++) {
+      if (TIME_RE.test(lines[i])) continue;
+      if (TIME_RE.test(lines[i + 1] ?? "")) {
+        from = lines[i];
+        time = lines[i + 1];
+        n = 0;
+      } else if (from) {
+        out.push({ from, text: lines[i], key: `${from}|${time}|${n++}|${lines[i]}` });
       }
-      lines.slice(start).forEach((text, n) => {
-        if (!TIME_RE.test(text)) out.push({ from, text, key: `${from}|${time}|${n}|${text}` });
-      });
     }
     return out;
   }
@@ -134,7 +132,7 @@
       chatOpen: () => Boolean(chatListNear(MEET_COMPOSER)),
       chat: () => {
         const list = chatListNear(MEET_COMPOSER);
-        return list ? chatFromGroups(list) : [];
+        return list ? chatFromList(list) : [];
       },
     },
 

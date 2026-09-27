@@ -6,6 +6,7 @@ const frame = $("thread");
 let threadUrl = DEFAULT_URL;
 let session = null;
 let events = [];
+let frameReady = false; // set once Thread inside the frame says hello
 
 const port = chrome.runtime.connect({ name: "thread-feed" });
 
@@ -15,11 +16,7 @@ function clock(sec) {
 }
 
 function toFrame(msg) {
-  try {
-    frame.contentWindow?.postMessage({ source: "thread-extension", ...msg }, new URL(threadUrl).origin);
-  } catch {
-    // frame not loaded yet; it asks for history once it is
-  }
+  if (frameReady) frame.contentWindow?.postMessage({ source: "thread-extension", ...msg }, new URL(threadUrl).origin);
 }
 
 port.onMessage.addListener((msg) => {
@@ -38,6 +35,7 @@ port.onMessage.addListener((msg) => {
 
 window.addEventListener("message", (e) => {
   if (e.source === frame.contentWindow && e.data?.source === "thread-app" && e.data.type === "hello") {
+    frameReady = true;
     port.postMessage({ type: "hello" });
   }
 });
@@ -123,7 +121,10 @@ async function connectThread() {
     if (!res.ok) throw new Error(String(res.status));
     $("offline").hidden = true;
     const src = `${threadUrl}/panel?feed=extension`;
-    if (frame.src !== src) frame.src = src;
+    if (frame.src !== src) {
+      frameReady = false;
+      frame.src = src;
+    }
   } catch {
     $("offline-url").textContent = threadUrl;
     $("offline").hidden = false;

@@ -60,6 +60,7 @@ export function TopNav() {
     isDrivingMode,
     toggleDrivingMode,
     sendReaction,
+    liveMeeting,
   } = useDemo();
   const live = playing || mode === "live";
 
@@ -155,9 +156,9 @@ export function TopNav() {
             <button
               onClick={() => setMode("demo")}
               className="rounded-lg bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-400 ring-1 ring-emerald-500/30 transition hover:bg-red-500/15 hover:text-red-400 hover:ring-red-500/30"
-              title="Stop live mic"
+              title={liveMeeting ? `Stop following the ${liveMeeting.platform} call` : "Stop live mic"}
             >
-              ● Live Mic — Stop
+              {liveMeeting ? `● ${liveMeeting.platform} — Stop` : "● Live Mic — Stop"}
             </button>
           )}
           <button

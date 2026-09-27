@@ -161,13 +161,15 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       localStorage.setItem("thread_engine_mode", m);
     }
-    if (m === "live") {
-      setPlaying(false);
-      setElapsed(0);
-    } else {
-      setPlaying(true); // back to demo → meeting resumes on its own
-    }
-  }, []);
+    // Each mode starts a fresh meeting, so a QR decoded while on the live mic doesn't leak into the demo.
+    setElapsed(0);
+    setActions(scenario.actions);
+    setExtraMoments([]);
+    setLiveLines([]);
+    setSentChat([]);
+    seenQr.current.clear();
+    setPlaying(m === "demo");
+  }, [scenario]);
   const executeAction = useCallback((id: string) => {
     const action = actions.find((a) => a.id === id);
     if (action?.kind === "reply" && action.label.startsWith("Draft chat reply:")) {

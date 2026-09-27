@@ -329,7 +329,7 @@ public class ThreadSessionManager: ObservableObject {
     /// Scripted demo actions surface when they are spoken, not all at once when the meeting starts.
     public var visibleActions: [DemoAction] {
         if isDemoTimelineShown {
-            return actions.filter { $0.timeSec <= max(elapsed, 18) }
+            return actions.filter { $0.timeSec <= elapsed }
         }
         return actions
     }
@@ -465,11 +465,11 @@ public class ThreadSessionManager: ObservableObject {
 
         actions = [
             DemoAction(id: "form-swe2027", label: "Auto-fill Nova Dynamics SWE Application", status: "staged", timeSec: 36, detail: "Pre-fills 8 fields from your resume via Gemini Agent", link: "https://novadynamics.io/careers/apply-2027"),
-            DemoAction(id: "a2", label: "Send follow-up email to Sarah Chen", status: "staged", timeSec: 45, detail: "Attaches portfolio link & references Discovery Day session", link: "mailto:sarah.chen@novadynamics.internal"),
-            DemoAction(id: "a3", label: "Stage deadline reminder — Oct 18", status: "staged", timeSec: 58, detail: "Google Calendar & iOS Reminders sync", link: nil),
-            DemoAction(id: "form-qna", label: "Auto-fill RSVP: Engineering Q&A Panel", status: "staged", timeSec: 90, detail: "Registers for Thursday 4 PM session with Priya Nair", link: "https://novadynamics.io/events/qna-rsvp"),
-            DemoAction(id: "form-sustainability", label: "Auto-fill Campus Recycling Committee Signup", status: "staged", timeSec: 105, detail: "Registers for Jordan Lee's smart recycling initiative", link: "https://helixsupply.com/sustainability/smart-bins"),
-            DemoAction(id: "a5", label: "Draft email to Jordan Lee re: Smart Bins", status: "staged", timeSec: 311, detail: "Campus recycling initiative cutoff Nov 15", link: "mailto:jordan.lee@helixsupply.com")
+            DemoAction(id: "a3", label: "Stage deadline reminder — Oct 18", status: "staged", timeSec: 66, detail: "Google Calendar & iOS Reminders sync", link: nil),
+            DemoAction(id: "form-qna", label: "Auto-fill RSVP: Engineering Q&A Panel", status: "staged", timeSec: 96, detail: "Registers for Thursday 4 PM session with Priya Nair", link: "https://novadynamics.io/events/qna-rsvp"),
+            DemoAction(id: "a2", label: "Send follow-up email to Sarah Chen", status: "staged", timeSec: 126, detail: "Attaches portfolio link & references Discovery Day session", link: "mailto:sarah.chen@novadynamics.internal"),
+            DemoAction(id: "form-sustainability", label: "Auto-fill Campus Recycling Committee Signup", status: "staged", timeSec: 156, detail: "Registers for Jordan Lee's smart recycling initiative", link: "https://helixsupply.com/sustainability/smart-bins"),
+            DemoAction(id: "a5", label: "Draft email to Jordan Lee re: Smart Bins", status: "staged", timeSec: 186, detail: "Campus recycling initiative cutoff Nov 15", link: "mailto:jordan.lee@helixsupply.com")
         ]
 
         allTranscript = [
@@ -1849,7 +1849,14 @@ public class ThreadSessionManager: ObservableObject {
             endDemoMeeting()
             return
         }
+        let prevCount = visibleActions.count
         elapsed = max(elapsed, wallClock)
+        let currCount = visibleActions.count
+        if currCount > prevCount, let newAction = visibleActions.last {
+            showNotification(text: "⚡ Agent Staged: \(newAction.label)")
+            let gen = UIImpactFeedbackGenerator(style: .medium)
+            gen.impactOccurred()
+        }
         updateDemoStateForTime()
     }
 
@@ -1890,7 +1897,7 @@ public class ThreadSessionManager: ObservableObject {
             startDemoMeeting()
             return
         }
-        let milestones = [18, 36, 58, 70, 90, 112, 311]
+        let milestones = [18, 36, 66, 96, 126, 156, 186]
         guard let next = milestones.first(where: { $0 > elapsed }) else {
             // Past the last milestone, Next wraps the meeting up.
             elapsed = Self.demoScriptLength

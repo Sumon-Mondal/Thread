@@ -5,6 +5,7 @@ public struct SettingsView: View {
     @ObservedObject var manager = ThreadSessionManager.shared
     @State private var showingResetAlert = false
     @State private var showingConsentAlert = false
+    @State private var showingVmScreenSheet = false
 
     public init() {}
 
@@ -64,6 +65,9 @@ public struct SettingsView: View {
                         .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
+            }
+            .sheet(isPresented: $showingVmScreenSheet) {
+                VirtualMachineScreenSheet()
             }
         }
         .alert(isPresented: $showingResetAlert) {
@@ -440,6 +444,47 @@ public struct SettingsView: View {
                     }
                 }
                 .toggleStyle(SwitchToggleStyle(tint: ThreadTheme.cyan))
+
+                Divider().background(Color.white.opacity(0.08))
+
+                // Virtual Machine Remote Display Button
+                Button(action: {
+                    let gen = UIImpactFeedbackGenerator(style: .medium)
+                    gen.impactOccurred()
+                    showingVmScreenSheet = true
+                }) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "macwindow.on.rectangle")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.cyan)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text("Virtual Machine Screen")
+                                    .font(.system(size: 13.5, weight: .bold))
+                                    .foregroundColor(.white)
+                                Text("LIVE")
+                                    .font(.system(size: 8.5, weight: .black))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1.5)
+                                    .background(Color.green.opacity(0.2))
+                                    .foregroundColor(.green)
+                                    .cornerRadius(4)
+                            }
+                            Text("Inspect live VM browser display, take over controls, & send chat")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(ThreadTheme.textMuted)
+                    }
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
 
                 Divider().background(Color.white.opacity(0.08))
 

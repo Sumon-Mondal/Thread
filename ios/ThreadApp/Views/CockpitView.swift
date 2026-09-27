@@ -10,6 +10,7 @@ public struct CockpitView: View {
     @State private var showingSettingsSheet = false
     @State private var selectedMomentForAgent: DemoMoment? = nil
     @State private var showingMeetingControlsSheet = false
+    @State private var showingVmScreenSheet = false
     @State private var selectedFormIndex: Int = 0
 
     public init() {}
@@ -48,7 +49,12 @@ public struct CockpitView: View {
 
                         // The live session stays one row on home; the full VM surface lives in the sheet.
                         if manager.isVmBotRunning || manager.isMeetingActive {
-                            LiveSessionRow { showingMeetingControlsSheet = true }
+                            LiveSessionRow(
+                                onOpen: { showingMeetingControlsSheet = true },
+                                onOpenVmScreen: { showingVmScreenSheet = true }
+                            )
+                        } else {
+                            vmStandbyRow
                         }
 
                         meetingPollCard
@@ -103,8 +109,16 @@ public struct CockpitView: View {
         .sheet(isPresented: $showingMeetingControlsSheet) {
             MeetingControlsSheet()
         }
+        .sheet(isPresented: $showingVmScreenSheet) {
+            VirtualMachineScreenSheet()
+        }
         .sheet(item: $selectedMomentForAgent) { moment in
             AgentMomentInspectorSheet(moment: moment)
+        }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-Thread_openVmScreen") {
+                showingVmScreenSheet = true
+            }
         }
     }
 
@@ -1489,6 +1503,56 @@ public struct CockpitView: View {
         let m = sec / 60
         let s = sec % 60
         return String(format: "%02d:%02d", m, s)
+    }
+
+    private var vmStandbyRow: some View {
+        Button(action: {
+            let gen = UIImpactFeedbackGenerator(style: .medium)
+            gen.impactOccurred()
+            showingVmScreenSheet = true
+        }) {
+            HStack(spacing: 10) {
+                Image(systemName: "macwindow.on.rectangle")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(ThreadTheme.cyan)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Virtual Machine Screen")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(ThreadTheme.textPrimary)
+                        Text("REMOTE VIEW")
+                            .font(.system(size: 8, weight: .black))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.white.opacity(0.08))
+                            .foregroundColor(ThreadTheme.cyan)
+                            .cornerRadius(3)
+                    }
+                    Text("Inspect remote browser, test touch takeover, or dispatch VM")
+                        .font(.system(size: 11))
+                        .foregroundColor(ThreadTheme.textMuted)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 6)
+
+                Text("View")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(ThreadTheme.textSecondary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(ThreadTheme.textMuted)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.04))
+                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(ThreadTheme.cardBorder, lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Standby Executive Dashboard (No meeting active)

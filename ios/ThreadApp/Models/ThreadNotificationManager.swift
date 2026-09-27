@@ -1,5 +1,6 @@
 import UserNotifications
 import Foundation
+import ActivityKit
 
 /// Manages system push notifications for upcoming calendar meetings.
 /// In production, the background calendar poller calls `scheduleUpcomingMeetingNotification`
@@ -58,8 +59,10 @@ public final class ThreadNotificationManager: NSObject, UNUserNotificationCenter
         UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
-    /// A moment detected while Thread is in the background and Live Activities are turned off.
+    /// A live meeting update. Skipped while a Live Activity is running, because the Dynamic Island
+    /// and Lock Screen already show it; shown when Live Activities are off.
     public func postMomentNotification(title: String, body: String) {
+        if ActivityAuthorizationInfo().areActivitiesEnabled && !Activity<ThreadActivityAttributes>.activities.isEmpty { return }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
@@ -74,7 +77,9 @@ public final class ThreadNotificationManager: NSObject, UNUserNotificationCenter
     public func userNotificationCenter(_ center: UNUserNotificationCenter,
                                        willPresent notification: UNNotification,
                                        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+        // Inside the app, meeting updates already appear as in-app toasts; only the "Join with Thread" prompt needs a banner.
+        let isMeetingUpdate = notification.request.content.threadIdentifier == "thread-moments"
+        completionHandler(isMeetingUpdate ? [] : [.banner, .sound])
     }
 
     public func userNotificationCenter(_ center: UNUserNotificationCenter,

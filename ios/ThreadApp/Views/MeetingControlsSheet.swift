@@ -5,47 +5,81 @@ import SwiftUI
 public struct LiveSessionRow: View {
     @ObservedObject private var manager = ThreadSessionManager.shared
     var onOpen: () -> Void
+    var onOpenVmScreen: (() -> Void)? = nil
 
-    public init(onOpen: @escaping () -> Void) {
+    public init(onOpen: @escaping () -> Void, onOpenVmScreen: (() -> Void)? = nil) {
         self.onOpen = onOpen
+        self.onOpenVmScreen = onOpenVmScreen
     }
 
     public var body: some View {
-        Button(action: onOpen) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(manager.isVmBotRunning ? ThreadTheme.success : ThreadTheme.cyan)
-                    .frame(width: 6, height: 6)
+        HStack(spacing: 8) {
+            Button(action: onOpen) {
+                HStack(spacing: 10) {
+                    Circle()
+                        .fill(manager.isVmBotRunning ? ThreadTheme.success : ThreadTheme.cyan)
+                        .frame(width: 6, height: 6)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(ThreadTheme.textPrimary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundColor(ThreadTheme.textMuted)
-                        .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(ThreadTheme.textPrimary)
+                            .lineLimit(1)
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundColor(ThreadTheme.textMuted)
+                            .lineLimit(1)
+                    }
                 }
-
-                Spacer(minLength: 8)
-
-                Text("Controls")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(ThreadTheme.textSecondary)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(ThreadTheme.textMuted)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.04))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(ThreadTheme.cardBorder, lineWidth: 1))
-            )
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 4)
+
+            if let openVm = onOpenVmScreen {
+                Button(action: {
+                    let gen = UIImpactFeedbackGenerator(style: .medium)
+                    gen.impactOccurred()
+                    openVm()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "macwindow.on.rectangle")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("VM Screen")
+                            .font(.system(size: 10.5, weight: .bold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.cyan.opacity(0.16))
+                    .foregroundColor(Color.cyan)
+                    .cornerRadius(7)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7)
+                            .stroke(Color.cyan.opacity(0.35), lineWidth: 0.8)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: onOpen) {
+                HStack(spacing: 3) {
+                    Text("Controls")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(ThreadTheme.textSecondary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(ThreadTheme.textMuted)
+                }
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.04))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(ThreadTheme.cardBorder, lineWidth: 1))
+        )
     }
 
     private var title: String {

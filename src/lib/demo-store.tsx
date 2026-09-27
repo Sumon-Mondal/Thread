@@ -191,7 +191,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         const result = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; delivered?: string };
         if (!res.ok || !result.ok) return { ok: false, error: result.error ?? "Gmail could not send the email" };
         executeAction(id);
-        return { ok: true, delivered: result.delivered };
+        return result.delivered ? { ok: true, delivered: result.delivered } : { ok: true };
       } catch (error) {
         return { ok: false, error: error instanceof Error ? error.message : "Email could not be sent" };
       }

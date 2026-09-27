@@ -1,5 +1,6 @@
 // Server-only: OpenAI & Lovable AI Gateway Responses helpers. Never import from the browser.
 // Supports direct OpenAI API keys (sk-...) and Lovable Gateway with resilient agentic fallback.
+import { SARAH_DEMO_RECIPIENT } from "@/lib/demo-recipient";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/responses";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -134,19 +135,18 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
   // Extraction endpoint (/api/extract)
   if (system.includes("actionitems") || system.includes("decisions") || system.includes("meeting intelligence")) {
     return JSON.stringify({
-      summary: "Nova Dynamics Discovery Day presentation highlighting Summer 2027 software engineering internships, distributed systems, and quantum algorithm initiatives.",
+      summary: "Nova Dynamics Discovery Day: Summer 2027 software engineering internships (paid, 12 weeks, Platform · Infrastructure · Applied AI) opened today, applications close Oct 18 at 11:59 PM ET, and an engineering Q&A panel is next Thursday.",
       decisions: [
-        "Summer 2027 internship portal opened officially today",
-        "Rolling technical interview rounds begin late October"
+        "Summer 2027 internship applications opened today",
+        "Referral applications get priority review"
       ],
       actionItems: [
         { task: "Submit Nova Dynamics SWE internship application via portal", owner: "You", due: "Oct 18" },
-        { task: "Send follow-up email to recruiter Sarah Chen referencing quantum computing discussion", owner: "You", due: "Today" },
+        { task: "Send a follow-up email to Sarah Chen", owner: "You", due: "Today" },
+        { task: "RSVP for the engineering Q&A panel", owner: "You", due: "Wednesday 5 PM" },
         { task: "Add application deadline milestone to Google Calendar", owner: "You", due: "Oct 18" }
       ],
-      openQuestions: [
-        "Will distributed quantum computing interns be stationed in Boston or San Francisco?"
-      ]
+      openQuestions: []
     });
   }
 
@@ -212,7 +212,7 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
       meetingTitle: "Nova Dynamics — Internship Discovery Day",
       recipients: finalRecipients,
       subject: "Meeting Minutes & Key Decisions — Nova Dynamics Discovery Day",
-      body: `Hi Team,\n\nHere are the synthesized meeting minutes and key takeaways from our recent session:\n\n• Session: Nova Dynamics Discovery Day\n• Date: September 24, 2026\n• Host: Sarah Chen (Lead Technical Recruiter) & Michael Torres (Engineering Manager)\n• Key Decisions:\n  - Summer 2027 Software Engineering Internship applications officially opened today\n  - Technical interview rounds begin late October\n• Important Deadlines:\n  - Application Deadline: October 18, 2026\n• Shared Resources:\n  - Application Portal: /apply/internship-app (Scanned via slide QR code)\n\nPlease reach out if you have any questions!\n\nBest regards,\nSumon Mondal\nNortheastern University`
+      body: `Hi Team,\n\nHere are the minutes from Nova Dynamics Discovery Day:\n\n• Host: Sarah Chen (University Recruiting Lead), with Michael Torres (Staff Engineer) and Priya Nair (Hiring Manager)\n• Key Decisions:\n  - Summer 2027 Software Engineering Internship applications opened today: paid 12-week roles across Platform, Infrastructure and Applied AI\n  - Referral applications get priority review\n• Important Dates:\n  - Application deadline: October 18, 11:59 PM ET (no extensions)\n  - Engineering Q&A panel: next Thursday, 4 PM ET\n• Shared Resources:\n  - Application Portal: /apply/internship-app (QR code on Michael's slide)\n\nPlease reach out if you have any questions!\n\nBest regards,\nSumon Mondal\nNortheastern University`
     };
     result.reply = `I've analyzed the attendee roster image and indexed it into your persistent meeting knowledge base. I extracted all ${finalRecipients.length} email addresses and prepared the synthesized meeting minutes from "Nova Dynamics — Discovery Day". A background batch dispatch job has been queued to email all attendees.`;
     result.steps = [
@@ -229,10 +229,10 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
     result.qrCard = {
       label: "Nova Dynamics SWE Application Portal",
       url: "/apply/internship-app",
-      via: "Slide QR Code (00:42)",
+      via: "Slide QR code (00:36)",
       meetingTitle: "Nova Dynamics — Discovery Day"
     };
-    result.reply = "During the Discovery Day meeting, Sarah Chen shared a QR code on her slide linking to the Summer Engineering Internship application portal (/apply/internship-app). In addition, Michael Torres shared the job application in the meeting chat. Both have been indexed in your meeting memory. Would you like me to auto-fill the application with your resume and submit it?";
+    result.reply = "Michael Torres shared the application portal as a QR code on his slide at 0:36 (/apply/internship-app) and posted the same link in the meeting chat. Would you like me to auto-fill the application with your resume?";
     result.steps = [
       "Searched meeting memory database for shared visual QR codes and links",
       "Located slide QR code decoded to: /apply/internship-app",
@@ -256,17 +256,17 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
           major: { value: "Computer Science & AI", source: "Resume" },
           gpa: { value: "3.9", source: "Resume" },
           gradDate: { value: "December 2027", source: "Resume" },
-          role: { value: "Software Engineering Intern", source: "Transcript 00:42 (Sarah Chen)" },
+          role: { value: "Software Engineering Intern", source: "Transcript 00:18 (Sarah Chen)" },
           skills: { value: "Python, Distributed Systems, Swift, TypeScript, Docker, PyTorch", source: "Resume & Transcript" },
           workAuth: { value: "Authorized (US Citizen)", source: "Resume" },
           sponsorship: { value: "No", source: "Resume" },
           startDate: { value: "June 2027", source: "Resume" },
           referral: { value: "Discovery Day Session (Sarah Chen)", source: "Meeting Memory" },
-          whyNova: { value: "Inspired by Sarah Chen's session on distributed quantum computing and low-latency systems. Eager to contribute my experience in systems and AI.", source: "Transcript 00:42 (Sarah Chen)" },
+          whyNova: { value: "Sarah Chen's overview of the Applied AI team at Discovery Day matches what I want to build, and my Python and distributed systems work fits what Michael Torres said the team looks for.", source: "Transcript 00:26 & 01:10" },
           consent: { value: "Yes", source: "User Authorization" }
         }
       };
-      result.reply = "I've retrieved the QR code link from Sarah Chen's slide and auto-filled the Nova Dynamics Summer Engineering Internship application using your resume. All required fields are completed and staged for submission.";
+      result.reply = "I've retrieved the portal link from the QR code on Michael Torres's slide and auto-filled the Nova Dynamics Summer Engineering Internship application using your resume. All required fields are completed and staged for submission.";
     }
     return JSON.stringify(result);
   }
@@ -274,15 +274,14 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
   // 3. Host Contact & Host Email
   if (isHost) {
     result.email = {
-      to: "sarah.chen@novadynamics.internal",
-      subject: "Discovery Day Follow-up — Summer 2027 SWE Internship (Sumon Mondal)",
-      body: "Hi Sarah,\n\nThank you for the inspiring session at Discovery Day today. I really enjoyed your overview of Nova Dynamics' distributed systems architecture and quantum computing roadmap.\n\nI have submitted my application for the Software Engineering internship and would love to stay in touch.\n\nBest regards,\nSumon Mondal\nsumonmondal0701@gmail.com"
+      to: SARAH_DEMO_RECIPIENT,
+      subject: "Discovery Day follow-up — Summer 2027 SWE internship (Sumon Mondal)",
+      body: "Hi Sarah,\n\nThank you for hosting Discovery Day today. The Summer 2027 software engineering internship, especially the Applied AI team, is exactly what I'm looking for, and I'll have my application in before the October 18 deadline.\n\nBest regards,\nSumon Mondal"
     };
-    result.reply = "The host for the Discovery Day session was Sarah Chen, Lead Technical Recruiter at Nova Dynamics. Her contact email is sarah.chen@novadynamics.internal (routed to your connected inbox). I have drafted a personalized follow-up email referencing the distributed quantum computing discussion, ready for your approval.";
+    result.reply = `Sarah Chen, University Recruiting Lead at Nova Dynamics, hosted Discovery Day. I drafted a follow-up that mentions the Applied AI team and the October 18 deadline, ready for your approval. Demo follow-ups to Sarah go to your inbox at ${SARAH_DEMO_RECIPIENT}.`;
     result.steps = [
-      "Queried meeting attendance and host records for 'discovery-day'",
-      "Identified host contact: Sarah Chen <sarah.chen@novadynamics.internal>",
-      "Drafted personalized follow-up referencing discussion topics from meeting memory"
+      "Identified the host: Sarah Chen",
+      "Drafted a follow-up from what was said in the meeting"
     ];
     return JSON.stringify(result);
   }
@@ -305,13 +304,13 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
         major: { value: "Computer Science & AI", source: "Resume" },
         gpa: { value: "3.9", source: "Resume" },
         gradDate: { value: "December 2027", source: "Resume" },
-        role: { value: "Software Engineering Intern", source: "Transcript 00:42 (Sarah Chen)" },
+        role: { value: "Software Engineering Intern", source: "Transcript 00:18 (Sarah Chen)" },
         skills: { value: "Python, Distributed Systems, Swift, TypeScript, Docker, PyTorch", source: "Resume & Transcript" },
         workAuth: { value: "Authorized (US Citizen)", source: "Resume" },
         sponsorship: { value: "No", source: "Resume" },
         startDate: { value: "June 2027", source: "Resume" },
         referral: { value: "Discovery Day Session (Sarah Chen)", source: "Meeting Memory" },
-        whyNova: { value: "Inspired by Sarah Chen's presentation on distributed systems and quantum algorithms. Eager to contribute my experience in systems and AI.", source: "Transcript 00:42 (Sarah Chen)" },
+        whyNova: { value: "Sarah Chen's overview of the Applied AI team at Discovery Day matches what I want to build, and my Python and distributed systems work fits what Michael Torres said the team looks for.", source: "Transcript 00:26 & 01:10" },
         consent: { value: "Yes", source: "User Authorization" }
       }
     };
@@ -328,18 +327,17 @@ function generateAgentFallback(config: ResponsesCallConfig): string {
   if (isCalendar) {
     result.events = [
       {
-        title: "Nova Dynamics SWE Internship Cutoff",
+        title: "Nova Dynamics internship application deadline",
         start: "2026-10-18T23:59:00",
-        durationMin: 60,
-        notes: "Hard application deadline announced by Sarah Chen during Discovery Day",
+        durationMin: 30,
+        notes: "Sarah Chen: applications close firmly on October 18 at 11:59 PM Eastern. No extensions.",
         timeGuessed: false
       }
     ];
-    result.reply = "Sarah Chen announced that applications for the Summer 2027 Software Engineering Internship close on October 18, 2026. I've staged this milestone for your Google Calendar.";
+    result.reply = "Applications close October 18 at 11:59 PM Eastern, and Sarah said there are no extensions. I prepared the calendar reminder.";
     result.steps = [
-      "Extracted deadline entity from transcript (Sarah Chen at 00:42)",
-      "Created calendar event for October 18, 2026 at 23:59",
-      "Staged event for one-tap Google Calendar sync"
+      "Found the deadline Sarah announced at 0:58",
+      "Prepared a calendar reminder"
     ];
     return JSON.stringify(result);
   }

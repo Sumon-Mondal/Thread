@@ -30,6 +30,19 @@ public struct DemoMoment: Identifiable, Hashable {
     public let detail: String
     public let link: String?
     public let matchedSkills: [String]
+    /// Skills the moment asks for that the profile lacks (the web shows them with "—").
+    public var missingSkills: [String] = []
+    /// 2–3 words for the Dynamic Island, shared with the web script.
+    public var headline: String? = nil
+}
+
+/// A message in the meeting's chat, mirrored from the web's Meeting Chat panel.
+public struct DemoChatMessage: Identifiable, Hashable {
+    public let id: String
+    public let from: String
+    public let text: String
+    public let timeSec: Int
+    public var isAgent: Bool = false
 }
 
 public struct DemoTranscript: Identifiable, Hashable {
@@ -48,6 +61,8 @@ public struct DemoAction: Identifiable, Hashable {
     public let timeSec: Int
     public var detail: String?
     public let link: String?
+    /// Same kinds as the web queue: "apply" | "reminder" | "calendar" | "reply" | "log".
+    public var kind: String? = nil
 }
 
 public struct VisionSlide {
@@ -255,18 +270,20 @@ public class ThreadSessionManager: ObservableObject {
     @Published public var meetingPlatform: String = "Google Meet"
 
     // Vision Slide Card
+    // Same slide as the web's shared screen (src/lib/demo-data.ts SLIDE)
     @Published public var visionSlide: VisionSlide = VisionSlide(
         presenter: "Michael Torres",
-        title: "Summer 2027 Internship Program",
-        subtitle: "Platform · Infrastructure · Applied AI",
+        title: "Summer 2027 — SWE Internship",
+        subtitle: "Applications open today · Close Oct 18",
         bullets: [
-            "12-week paid internship across Platform & AI teams",
-            "Mentorship from Staff & Principal Engineers",
-            "Applications close October 18, 11:59 PM ET"
+            "12 weeks, paid",
+            "Platform · Infra · Applied AI",
+            "Referral = priority review"
         ],
-        qrUrl: "https://novadynamics.io/careers/apply-2027",
+        qrUrl: "/apply/internship-app",
         qrDetected: true
     )
+    @Published public var chat: [DemoChatMessage] = []
 
     // Moments, Actions & Transcript
     @Published public var allMoments: [DemoMoment] = []

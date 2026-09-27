@@ -6,8 +6,10 @@ import { z } from "zod";
 const schema = z.object({
   meetingTitle: z.string().max(200),
   playing: z.boolean(),
+  status: z.enum(["live", "paused", "ended"]).optional(),
   elapsed: z.number().min(0).max(86400),
   speaker: z.string().max(100),
+  speakerRole: z.string().max(100).optional(),
   lastLine: z.string().max(1000),
   shortHeadline: z.string().max(60).optional(),
   platform: z.string().max(50).optional().default("Google Meet"),
@@ -24,12 +26,14 @@ const schema = z.object({
     id: z.string().max(60),
     label: z.string().max(200),
     status: z.string().max(20),
+    kind: z.string().max(20).optional(),
     detail: z.string().max(500).optional(),
     link: z.string().max(500).optional(),
   })).max(50),
   transcript: z.array(z.object({
     id: z.string().max(60),
     speaker: z.string().max(100),
+    role: z.string().max(100).optional(),
     text: z.string().max(1000),
     timeSec: z.number().optional(),
   })).optional(),
@@ -40,6 +44,8 @@ const schema = z.object({
     timeSec: z.number().optional(),
     takeaway: z.string().max(300),
     detail: z.string().max(1000).optional(),
+    headline: z.string().max(60).optional(),
+    link: z.string().max(500).optional(),
   })).optional(),
 });
 

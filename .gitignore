@@ -19,6 +19,11 @@ dist-ssr
 # Environment
 .env
 .env.*
+# Connector state the dev server writes at runtime (account emails, calendar events)
+.thread_connectors.json
+# Office lock files and presentation scratch
+~$*
+.presentation-build/
 .dev.vars
 
 # Editor directories and files

@@ -2284,7 +2284,9 @@ public class ThreadSessionManager: ObservableObject {
         lastAnnouncedMomentId = moment.id
 
         let title = "\(moment.type.capitalized) · \(moment.speaker)"
-        speakAloud("\(moment.type.capitalized). \(moment.takeaway)")
+        if !isDemoMode {
+            speakAloud("\(moment.type.capitalized). \(moment.takeaway)")
+        }
 
         guard UIApplication.shared.applicationState != .active else { return nil }
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {

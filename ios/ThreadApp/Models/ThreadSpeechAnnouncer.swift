@@ -10,9 +10,14 @@ public class ThreadSpeechAnnouncer: NSObject, AVSpeechSynthesizerDelegate, AVAud
     public var isSpeaking: Bool = false
     public var lastSpokenText: String = ""
 
+    /// A real key (sk_…) pasted in Settings wins; otherwise the value from the local, git-ignored
+    /// ios/Config/Secrets.xcconfig baked in at build time. Empty means Apple's voice is used.
     public var elevenLabsApiKey: String {
         get {
-            UserDefaults.standard.string(forKey: "Thread_elevenLabsApiKey") ?? "e2277be10d0a25b34ff37feccb6fbb863a67d00ea61736dfa288a0e43b2b42cb"
+            if let saved = UserDefaults.standard.string(forKey: "Thread_elevenLabsApiKey"), saved.hasPrefix("sk_") {
+                return saved
+            }
+            return (Bundle.main.object(forInfoDictionaryKey: "ElevenLabsAPIKey") as? String) ?? ""
         }
         set {
             UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "Thread_elevenLabsApiKey")

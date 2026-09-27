@@ -1,0 +1,3 @@
+// Local secrets live in Secrets.xcconfig, which is git-ignored.
+// Copy Secrets.xcconfig.example to Secrets.xcconfig and fill it in; the build works without it.
+#include? "Secrets.xcconfig"

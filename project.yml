@@ -16,6 +16,9 @@ targets:
     sources:
       - path: ios/ThreadApp
       - path: ios/ThreadWidget/ThreadActivityAttributes.swift
+    configFiles:
+      Debug: ios/Config/Base.xcconfig
+      Release: ios/Config/Base.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sumonmondal.ThreadApp

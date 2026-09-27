@@ -18,6 +18,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>ElevenLabsAPIKey</key>
+	<string>$(ELEVENLABS_API_KEY)</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Thread connects to the Thread server running on your Mac.</string>
 </dict>

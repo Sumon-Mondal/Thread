@@ -17,7 +17,7 @@ import {
   type Scenario,
   type TranscriptLine,
 } from "./demo-data";
-import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_ACTION_ID, SARAH_FOLLOW_UP_EMAIL } from "./demo-recipient";
+import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_EMAIL, isSarahFollowUp } from "./demo-recipient";
 
 export type EngineMode = "demo" | "live";
 
@@ -134,7 +134,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const play = useCallback(() => setPlaying(true), []);
   const pause = useCallback(() => setPlaying(false), []);
   const nextMoment = useCallback(() => {
-    const times = [...new Set(scenario.moments.map((m) => m.timeSec))].sort((a, b) => a - b);
+    // Every moment and every staged action, matching the iPhone's Next.
+    const times = [...new Set([...scenario.moments, ...scenario.actions].map((x) => x.timeSec))].filter((t) => t > 0).sort((a, b) => a - b);
     const next = times.find((t) => t > elapsedRef.current);
     setElapsed(next ?? scenario.endSec);
     setPlaying(next !== undefined);
@@ -183,7 +184,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const approveAction = useCallback(async (id: string): Promise<ApproveResult> => {
     const action = actionsRef.current.find((a) => a.id === id);
     if (!action || action.status === "executed") return { ok: true };
-    if (id === SARAH_FOLLOW_UP_ACTION_ID) {
+    if (isSarahFollowUp(action)) {
       try {
         const res = await fetch("/api/send-email", {
           method: "POST",
@@ -236,6 +237,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       speaker: source,
       timeSec: t,
       takeaway: isApply ? "QR code → internship application" : "QR code → shared resource",
+      headline: isApply ? "Application QR" : "Shared QR Code",
       detail: `Thread scanned the QR code from ${source} and decoded: ${url}`,
       link: url,
     });
@@ -255,7 +257,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     for (const c of chat) {
       if (c.isAgent) continue;
-      const email = c.text.match(/[\w.+-]+@[\w-]+\.[\w.]+/)?.[0];
+      // Domain labels must follow each dot, so a sentence's final period isn't swallowed into the address.
+      const email = c.text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/)?.[0];
       const link = c.text.match(/(https?:\/\/\S+|\/apply\/[\w-]+)/)?.[0];
       const request = /\b(please|rsvp|send|submit|email|register|sign up|due|by (mon|tues|wednes|thurs|fri)day)\b/i.test(c.text);
       if (!email && !link && !request) continue;

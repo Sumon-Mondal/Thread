@@ -395,7 +395,7 @@ public struct CockpitView: View {
                             VStack(spacing: 6) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .font(.system(size: 20))
-                                Text("Approve Next")
+                                Text("Execute Next")
                                     .font(.system(size: 12, weight: .bold))
                             }
                             .frame(maxWidth: .infinity)
@@ -1202,8 +1202,8 @@ public struct CockpitView: View {
                                         manager.approveAction(id: action.id)
                                     }) {
                                         HStack {
-                                            Image(systemName: "paperplane.fill")
-                                            Text("Approve & Execute")
+                                            Image(systemName: "bolt.fill")
+                                            Text("Execute Action")
                                         }
                                         .font(.system(size: 12, weight: .bold))
                                         .frame(maxWidth: .infinity)
@@ -1246,7 +1246,7 @@ public struct CockpitView: View {
 
             if staged {
                 Button(action: { manager.approveAction(id: action.id) }) {
-                    Text("Approve")
+                    Text("Execute")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(ThreadTheme.background)
                         .padding(.horizontal, 12)

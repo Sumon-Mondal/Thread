@@ -138,13 +138,14 @@ export const SCRIPT_MOMENTS: Moment[] = [
 ];
 
 export const SCRIPT_ACTIONS: AgentAction[] = [
-  { id: "a1", label: "Save application portal link", kind: "log", status: "executed", timeSec: 36, detail: "/apply/internship-app stored to Resources" },
+  { id: "a1", label: "Go through QR Code & Apply", kind: "apply", status: "executed", timeSec: 36, detail: "Decoded QR code from slide · /apply/internship-app stored to Resources" },
   { id: "a2", label: "React 👍 to Sarah's announcement in chat", kind: "reply", status: "executed", timeSec: 20, detail: "Sent emoji reaction to meeting chat" },
-  { id: "a3", label: "Stage deadline reminder — Oct 18, 11:59 PM ET", kind: "reminder", status: "staged", timeSec: 66, detail: "Reminders at T-48h and T-6h; requires your approval" },
-  { id: "a4", label: "Add Q&A panel to calendar — Thu 4 PM ET", kind: "calendar", status: "staged", timeSec: 96, detail: "Draft invite with Meet link; requires your approval" },
+  { id: "a3", label: "Set deadline reminder — Oct 18, 11:59 PM ET", kind: "reminder", status: "staged", timeSec: 66, detail: "Reminders at T-48h and T-6h; ready in your queue" },
+  { id: "a4", label: "Found link in chat: RSVP for Q&A Panel", kind: "calendar", status: "staged", timeSec: 96, detail: "Draft invite with Meet link; ready in your queue" },
   { id: "a5", label: "Send follow-up email to Sarah Chen", kind: "reply", status: "staged", timeSec: 126, detail: `Attaches portfolio link & references Discovery Day session; sends to ${SARAH_DEMO_RECIPIENT}` },
-  { id: "a6", label: "Auto-fill Campus Recycling Committee Signup", kind: "apply", status: "staged", timeSec: 156, detail: "Registers for Jordan Lee's smart recycling initiative (/apply/sustainability)" },
-  { id: "a7", label: "Draft email to Jordan Lee re: Smart Bins", kind: "reply", status: "staged", timeSec: 186, detail: "Campus recycling initiative cutoff Nov 15; email jordan.lee@helixsupply.com" },
+  // Jordan Lee is only mentioned at 5:11, so his items can't be staged before then.
+  { id: "a6", label: "Sign up for Campus Recycling Committee", kind: "apply", status: "staged", timeSec: 316, detail: "Registers for Jordan Lee's smart recycling initiative (/apply/sustainability)" },
+  { id: "a7", label: "Send email to Jordan Lee re: Smart Bins", kind: "reply", status: "staged", timeSec: 321, detail: "Campus recycling initiative cutoff Nov 15; email jordan.lee@helixsupply.com" },
 ];
 
 export const SCRIPT_CHAT: ChatMsg[] = [

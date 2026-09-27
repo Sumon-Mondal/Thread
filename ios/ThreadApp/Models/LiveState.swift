@@ -464,12 +464,13 @@ public class ThreadSessionManager: ObservableObject {
         ]
 
         actions = [
-            DemoAction(id: "form-swe2027", label: "Auto-fill Nova Dynamics SWE Application", status: "staged", timeSec: 36, detail: "Pre-fills 8 fields from your resume via Gemini Agent", link: "https://novadynamics.io/careers/apply-2027"),
-            DemoAction(id: "a3", label: "Stage deadline reminder — Oct 18", status: "staged", timeSec: 66, detail: "Google Calendar & iOS Reminders sync", link: nil),
-            DemoAction(id: "form-qna", label: "Auto-fill RSVP: Engineering Q&A Panel", status: "staged", timeSec: 96, detail: "Registers for Thursday 4 PM session with Priya Nair", link: "https://novadynamics.io/events/qna-rsvp"),
-            DemoAction(id: "a2", label: "Send follow-up email to Sarah Chen", status: "staged", timeSec: 126, detail: "Attaches portfolio link & references Discovery Day session", link: "mailto:sarah.chen@novadynamics.internal"),
-            DemoAction(id: "form-sustainability", label: "Auto-fill Campus Recycling Committee Signup", status: "staged", timeSec: 156, detail: "Registers for Jordan Lee's smart recycling initiative", link: "https://helixsupply.com/sustainability/smart-bins"),
-            DemoAction(id: "a5", label: "Draft email to Jordan Lee re: Smart Bins", status: "staged", timeSec: 186, detail: "Campus recycling initiative cutoff Nov 15", link: "mailto:jordan.lee@helixsupply.com")
+            DemoAction(id: "form-swe2027", label: "Go through QR Code & Apply", status: "staged", timeSec: 36, detail: "Gemini vision decoded QR code on slide · Pre-fills SWE application", link: "https://novadynamics.io/careers/apply-2027"),
+            DemoAction(id: "a3", label: "Set deadline reminder for Oct 18", status: "staged", timeSec: 66, detail: "Google Calendar & iOS Reminders sync", link: nil),
+            DemoAction(id: "form-qna", label: "Found link in chat: RSVP for Q&A", status: "staged", timeSec: 96, detail: "Registers for Thursday 4 PM session with Priya Nair", link: "https://novadynamics.io/events/qna-rsvp"),
+            DemoAction(id: "a2", label: "Send a follow-up email to Sarah Chen", status: "staged", timeSec: 126, detail: "Attaches portfolio link & references Discovery Day session", link: "mailto:sarah.chen@novadynamics.internal"),
+            // Jordan Lee is only mentioned at 5:11, so his items can't be staged before then.
+            DemoAction(id: "form-sustainability", label: "Sign up for Campus Recycling Committee", status: "staged", timeSec: 316, detail: "Registers for Jordan Lee's smart recycling initiative", link: "https://helixsupply.com/sustainability/smart-bins"),
+            DemoAction(id: "a5", label: "Send email to Jordan Lee re: Smart Bins", status: "staged", timeSec: 321, detail: "Campus recycling initiative cutoff Nov 15", link: "mailto:jordan.lee@helixsupply.com")
         ]
 
         allTranscript = [
@@ -525,7 +526,9 @@ public class ThreadSessionManager: ObservableObject {
                 self.meetingTitle = title
             }
             if let spk = json["speaker"] as? String, !spk.isEmpty {
-                self.currentSpeaker = SpeakerInfo(name: spk, role: "Active Attendee", initials: String(spk.prefix(2)).uppercased(), color: .blue)
+                let role = (json["speakerRole"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Active Attendee"
+                let initials = String(spk.split(separator: " ").compactMap(\.first).prefix(2)).uppercased()
+                self.currentSpeaker = SpeakerInfo(name: spk, role: role, initials: initials, color: .blue)
             }
             if let headline = json["shortHeadline"] as? String, !headline.isEmpty {
                 self.shortHeadline = headline
@@ -569,7 +572,7 @@ public class ThreadSessionManager: ObservableObject {
                         newTranscript.append(DemoTranscript(
                             id: id,
                             speaker: spk,
-                            role: "Speaker",
+                            role: (t["role"] as? String) ?? "Speaker",
                             timeSec: (t["timeSec"] as? Int) ?? self.elapsed,
                             text: txt,
                             momentType: nil
@@ -577,6 +580,23 @@ public class ThreadSessionManager: ObservableObject {
                     }
                 }
                 self.allTranscript = newTranscript
+            }
+            // Moments the web detected, so the notes and Dynamic Island match what the web shows
+            if let rawMoments = json["moments"] as? [[String: Any]], !rawMoments.isEmpty {
+                self.allMoments = rawMoments.compactMap { m in
+                    guard let id = m["id"] as? String, let type = m["type"] as? String, let takeaway = m["takeaway"] as? String else { return nil }
+                    return DemoMoment(
+                        id: id,
+                        type: type,
+                        speaker: m["speaker"] as? String ?? "",
+                        timeSec: m["timeSec"] as? Int ?? self.elapsed,
+                        takeaway: takeaway,
+                        detail: m["detail"] as? String ?? "",
+                        link: m["link"] as? String,
+                        matchedSkills: [],
+                        headline: m["headline"] as? String
+                    )
+                }
             }
             updateLiveActivity()
         } catch {
@@ -906,7 +926,7 @@ public class ThreadSessionManager: ObservableObject {
                     let actionId = "email-\(UUID().uuidString.prefix(6))"
                     let action = DemoAction(
                         id: actionId,
-                        label: "✉️ Draft Follow-up Email to \(email)",
+                        label: "✉️ Send Follow-up Email to \(email)",
                         status: "staged",
                         timeSec: elapsed,
                         detail: "Email shared by \(speaker). Tap to review or command Agent to send.",
@@ -923,7 +943,7 @@ public class ThreadSessionManager: ObservableObject {
                         link: "mailto:\(email)",
                         matchedSkills: ["Networking", "Follow-up"]
                     ))
-                    showNotification(text: "✉️ Email Noted: \(email) — Draft Staged")
+                    showNotification(text: "✉️ Send follow-up email to \(email)")
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.warning)
                     updateLiveActivity()
@@ -943,7 +963,7 @@ public class ThreadSessionManager: ObservableObject {
                     let actionId = "link-\(UUID().uuidString.prefix(6))"
                     let action = DemoAction(
                         id: actionId,
-                        label: "🔗 Inspect & Auto-fill (\(host))",
+                        label: "🔗 Found link in chat: Open \(host)",
                         status: "staged",
                         timeSec: elapsed,
                         detail: "Shared URL detected from meeting. Tap to inspect and auto-fill your application.",
@@ -960,7 +980,7 @@ public class ThreadSessionManager: ObservableObject {
                         link: urlString,
                         matchedSkills: ["Auto-fill", "Resume Matching"]
                     ))
-                    showNotification(text: "🔗 Link Shared: \(host) — Auto-fill Staged")
+                    showNotification(text: "🔗 Found link in chat: \(host)")
                     let generator = UINotificationFeedbackGenerator()
                     generator.notificationOccurred(.warning)
                     updateLiveActivity()
@@ -1095,7 +1115,7 @@ public class ThreadSessionManager: ObservableObject {
                 let actionId = "trash-\(UUID().uuidString.prefix(6))"
                 let action = DemoAction(
                     id: actionId,
-                    label: "✉️ Draft Email to Jordan Lee: Campus Recycling (Nov 15)",
+                    label: "✉️ Send Email to Jordan Lee: Campus Recycling (Nov 15)",
                     status: "staged",
                     timeSec: elapsed,
                     detail: "Campus trash & recycling initiative discussed. Cutoff deadline Nov 15.",
@@ -1772,7 +1792,10 @@ public class ThreadSessionManager: ObservableObject {
         isDemoPaused = false
         isDemoEnded = false
         isDemoRunning = true
-        if elapsed == 0 || elapsed >= Self.demoScriptLength {
+        let customElapsed = UserDefaults.standard.integer(forKey: "Thread_demoElapsed")
+        if customElapsed > 0 {
+            elapsed = customElapsed
+        } else if elapsed == 0 || elapsed >= Self.demoScriptLength {
             elapsed = 18 // Start when Sarah Chen announces the SWE internship openings
         }
         meetingStartDate = Date().addingTimeInterval(-Double(elapsed))
@@ -1805,7 +1828,7 @@ public class ThreadSessionManager: ObservableObject {
         screenShareActive = false
         endLiveActivity()
         let awaiting = visibleActions.filter { $0.status == "staged" }.count
-        showNotification(text: "Meeting ended — \(awaiting) action\(awaiting == 1 ? "" : "s") awaiting approval")
+        showNotification(text: "Meeting ended — \(awaiting) action\(awaiting == 1 ? "" : "s") ready in your queue")
         let gen = UINotificationFeedbackGenerator()
         gen.notificationOccurred(.warning)
     }
@@ -1853,7 +1876,7 @@ public class ThreadSessionManager: ObservableObject {
         elapsed = max(elapsed, wallClock)
         let currCount = visibleActions.count
         if currCount > prevCount, let newAction = visibleActions.last {
-            showNotification(text: "⚡ Agent Staged: \(newAction.label)")
+            showNotification(text: "⚡ \(newAction.label)")
             let gen = UIImpactFeedbackGenerator(style: .medium)
             gen.impactOccurred()
         }
@@ -1897,7 +1920,8 @@ public class ThreadSessionManager: ObservableObject {
             startDemoMeeting()
             return
         }
-        let milestones = [18, 36, 66, 96, 126, 156, 186]
+        // Every moment and every staged action, so Next never skips something the presenter should show.
+        let milestones = Array(Set(allMoments.map(\.timeSec) + actions.map(\.timeSec))).filter { $0 > 0 }.sorted()
         guard let next = milestones.first(where: { $0 > elapsed }) else {
             // Past the last milestone, Next wraps the meeting up.
             elapsed = Self.demoScriptLength
@@ -1931,7 +1955,7 @@ public class ThreadSessionManager: ObservableObject {
         )
         actions.insert(urgentAction, at: 0)
         shortHeadline = "Action Needed"
-        showNotification(text: "🔔 Urgent Action Staged: Approve Recruiter Reply")
+        showNotification(text: "🔔 Send recruiter reply now")
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.warning)
         updateLiveActivity()

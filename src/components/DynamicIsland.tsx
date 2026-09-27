@@ -140,15 +140,27 @@ export function DynamicIsland() {
               </p>
             ) : (
               <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => {
-                    if (moment) setDecision((d) => ({ ...d, [moment.id]: "approved" }));
-                    toast.success("Meeting Gist approved for Agent action");
-                  }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-400 via-cyan-300 to-blue-500 px-3 py-2 text-xs font-bold text-black shadow-[0_0_20px_rgba(34,211,238,0.3)] transition hover:opacity-95 active:scale-[0.98]"
-                >
-                  <Check className="size-3.5 stroke-[2.5]" /> Approve Action
-                </button>
+                {(() => {
+                  const dynamicActionLabel =
+                    moment?.type === "OPPORTUNITY"
+                      ? "Go through QR Code & Apply"
+                      : moment?.type === "DEADLINE"
+                      ? "Set deadline reminder"
+                      : moment?.type === "EVENT"
+                      ? "Found link in chat: RSVP"
+                      : "Send a follow up email";
+                  return (
+                    <button
+                      onClick={() => {
+                        if (moment) setDecision((d) => ({ ...d, [moment.id]: "approved" }));
+                        toast.success(`${dynamicActionLabel} — Executing`);
+                      }}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-400 via-cyan-300 to-blue-500 px-3 py-2 text-xs font-bold text-black shadow-[0_0_20px_rgba(34,211,238,0.3)] transition hover:opacity-95 active:scale-[0.98]"
+                    >
+                      <Check className="size-3.5 stroke-[2.5]" /> {dynamicActionLabel}
+                    </button>
+                  );
+                })()}
                 <button
                   onClick={() => {
                     if (moment) setDecision((d) => ({ ...d, [moment.id]: "snoozed" }));

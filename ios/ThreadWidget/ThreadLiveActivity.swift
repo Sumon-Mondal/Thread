@@ -64,7 +64,7 @@ public struct ThreadLiveActivity: Widget {
                         }
                         .padding(.horizontal, 4)
 
-                        ApproveButton(state: state)
+                        ActionButton(state: state)
                     }
                     .padding(.horizontal, 4)
                     .padding(.top, 4)
@@ -213,7 +213,7 @@ struct LockScreenLiveActivityView: View {
             )
 
             // Executive 1-Tap Action Button or Live Indicator
-            ApproveButton(state: state, prefix: "Approve: ")
+            ActionButton(state: state)
         }
         .padding(14)
         .background(
@@ -248,18 +248,38 @@ private struct MeetingContextLine: View {
     }
 }
 
-private struct ApproveButton: View {
+private struct ActionButton: View {
     let state: ThreadActivityAttributes.ContentState
-    var prefix: String = ""
+
+    private func cleanActionLabel(_ raw: String) -> String {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.lowercased().hasPrefix("approve:") {
+            s = String(s.dropFirst(8)).trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if s.lowercased().hasPrefix("approve ") {
+            s = String(s.dropFirst(8)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return s
+    }
+
+    private func actionIcon(for label: String) -> String {
+        let l = label.lowercased()
+        if l.contains("email") || l.contains("mail") { return "paperplane.fill" }
+        if l.contains("qr") || l.contains("code") { return "qrcode.viewfinder" }
+        if l.contains("chat") || l.contains("link") { return "link.circle.fill" }
+        if l.contains("reminder") || l.contains("calendar") || l.contains("rsvp") { return "calendar.badge.clock" }
+        if l.contains("apply") || l.contains("form") { return "doc.text.fill" }
+        return "bolt.fill"
+    }
 
     var body: some View {
-        if let label = state.stagedActionLabel, !state.isActionExecuted,
+        if let rawLabel = state.stagedActionLabel, !state.isActionExecuted,
            let id = state.stagedActionId, let url = URL(string: "threadapp://approve?id=\(id)") {
+            let label = cleanActionLabel(rawLabel)
             Link(destination: url) {
                 HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
+                    Image(systemName: actionIcon(for: label))
                         .font(.system(size: 12, weight: .bold))
-                    Text(prefix + label)
+                    Text(label)
                         .font(.system(size: 12, weight: .bold))
                         .lineLimit(1)
                 }

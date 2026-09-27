@@ -19,7 +19,7 @@ import { PromptInput, PromptInputBody, PromptInputFooter, PromptInputSubmit, Pro
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_ACTION_ID, SARAH_FOLLOW_UP_EMAIL } from "@/lib/demo-recipient";
+import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_EMAIL, isSarahFollowUp } from "@/lib/demo-recipient";
 
 /* ---------- Left: Moments + Transcript ---------- */
 
@@ -301,7 +301,7 @@ export function AgentQueuePanel() {
 
   async function approve(a: (typeof actions)[number]) {
     if (sendingId) return;
-    if (a.id === SARAH_FOLLOW_UP_ACTION_ID) {
+    if (isSarahFollowUp(a)) {
       setSendingId(a.id);
       const result = await approveAction(a.id);
       setSendingId(null);
@@ -341,7 +341,7 @@ export function AgentQueuePanel() {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-medium leading-snug">{a.label}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{a.detail}</p>
-              {a.id === SARAH_FOLLOW_UP_ACTION_ID && a.status === "staged" && (
+              {isSarahFollowUp(a) && a.status === "staged" && (
                 <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">To: {SARAH_DEMO_RECIPIENT} · Subject: {SARAH_FOLLOW_UP_EMAIL.subject}<br />“{SARAH_FOLLOW_UP_EMAIL.body.replace(/\n+/g, " ")}”</p>
               )}
               {a.status === "staged" && (
@@ -350,7 +350,7 @@ export function AgentQueuePanel() {
                   onClick={() => void approve(a)}
                   className="mt-2 rounded-lg bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground transition hover:bg-primary/85"
                 >
-                  {sendingId === a.id ? "Sending…" : a.id === SARAH_FOLLOW_UP_ACTION_ID ? "Approve & send email" : "Approve & Execute"}
+                  {sendingId === a.id ? "Sending…" : isSarahFollowUp(a) ? "Send follow-up email" : "Execute Action"}
                 </Button>
               )}
               {a.status === "executed" && a.link && (

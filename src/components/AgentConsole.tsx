@@ -632,7 +632,7 @@ export function AgentConsole({
                     onClick={() => submitForm(def)}
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/85 disabled:opacity-60"
                   >
-                    {sending && <Loader2 className="size-4 animate-spin" />} Approve & Submit
+                    {sending && <Loader2 className="size-4 animate-spin" />} Submit Application
                    </Button>
                 </>
               ) : (
@@ -655,7 +655,7 @@ export function AgentConsole({
                         <p className="font-medium">{ev.title}</p>
                         <p className="text-[11px] text-muted-foreground">{when} · {ev.durationMin ?? 30} min{ev.timeGuessed ? " · time guessed, no time was given" : ""}</p>
                       </div>
-                      <SendToCalendar title={ev.title} prefix="" label="Approve & Add to Calendar" {...(ev.start ? { start: ev.start } : {})} {...(ev.durationMin ? { durationMin: ev.durationMin } : {})} {...(ev.notes ? { notes: ev.notes } : {})} />
+                      <SendToCalendar title={ev.title} prefix="" label="Add to Calendar" {...(ev.start ? { start: ev.start } : {})} {...(ev.durationMin ? { durationMin: ev.durationMin } : {})} {...(ev.notes ? { notes: ev.notes } : {})} />
                     </li>
                   );
                 })}
@@ -676,7 +676,7 @@ export function AgentConsole({
                 <p className="mt-3 flex items-center gap-1.5 text-xs text-emerald-400"><CheckCircle2 className="size-3.5" /> Sent to {email.to} from your Gmail</p>
               ) : (
                  <Button disabled={sending} onClick={sendDraft} className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/85 disabled:opacity-60">
-                  {sending && <Loader2 className="size-4 animate-spin" />} Approve & Send
+                  {sending && <Loader2 className="size-4 animate-spin" />} Send Email
                  </Button>
               )}
             </div>

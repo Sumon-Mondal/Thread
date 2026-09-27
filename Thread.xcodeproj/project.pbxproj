@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B4C8F67B4F429813FA077E4 /* EmailComposerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */; };
 		2BF17F181249BC04F80F0655 /* ThreadNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */; };
 		3662D771CF913B9DA23628ED /* MeetingControlsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */; };
 		583B0320F59D78CF48B1B125 /* MeetingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C44F2445929C2F2F61547F9 /* MeetingRoomView.swift */; };
@@ -73,6 +74,7 @@
 		A948F2FC7D755B5061B4950D /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
 		B6C2721C988E32AF3AE9142C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitView.swift; sourceTree = "<group>"; };
+		C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailComposerSheet.swift; sourceTree = "<group>"; };
 		DBBA0A17CCD76790DBE08EE3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E5442CAF3E7AE4757E272CE7 /* ThreadApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ThreadApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingControlsSheet.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 				0AAB832E9C536CF17AFFD4C2 /* AgentMomentInspectorSheet.swift */,
 				A948F2FC7D755B5061B4950D /* AgentView.swift */,
 				C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */,
+				C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */,
 				23C51DA8ABC1BE583360D38D /* GlassComponents.swift */,
 				28EEC1BEAE9A9998C11D2B63 /* IntegrationsView.swift */,
 				E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */,
@@ -268,6 +271,7 @@
 				E2448A68264077E480A3BBCD /* AgentMomentInspectorSheet.swift in Sources */,
 				8088CED3E3F09AA28C1A9949 /* AgentView.swift in Sources */,
 				88007EE1D4E3194B0E8EFF12 /* CockpitView.swift in Sources */,
+				0B4C8F67B4F429813FA077E4 /* EmailComposerSheet.swift in Sources */,
 				F8A67F8D97022C70922E52B3 /* GlassComponents.swift in Sources */,
 				B9B0888BC79BF165748BF43B /* IntegrationsView.swift in Sources */,
 				5EFDAAFACC3F5446C0A1C4F2 /* LiveState.swift in Sources */,

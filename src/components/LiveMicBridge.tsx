@@ -5,8 +5,11 @@ import { getScribeToken } from "@/lib/scribe.functions";
 
 /** Connects the mic to ElevenLabs Scribe while the app is in Live Mic mode. */
 export function LiveMicBridge() {
-  const { mode, addLiveLine } = useDemo();
+  const { mode, addLiveLine, liveMeeting } = useDemo();
   const [error, setError] = useState<string | null>(null);
+  // A call read by the Chrome extension already has captions for everyone, including you.
+  const viaExtension =
+    Boolean(liveMeeting) || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("feed") === "extension");
   const addRef = useRef(addLiveLine);
   addRef.current = addLiveLine;
 
@@ -20,7 +23,7 @@ export function LiveMicBridge() {
   scribeRef.current = scribe;
 
   useEffect(() => {
-    if (mode !== "live") return;
+    if (mode !== "live" || viaExtension) return;
     let cancelled = false;
     (async () => {
       try {
@@ -40,9 +43,9 @@ export function LiveMicBridge() {
       cancelled = true;
       scribeRef.current.disconnect();
     };
-  }, [mode]);
+  }, [mode, viaExtension]);
 
-  if (mode !== "live" || !error) return null;
+  if (mode !== "live" || viaExtension || !error) return null;
   return (
     <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 glass-panel rounded-xl px-4 py-2 text-sm text-destructive">
       Live mic unavailable: {error}

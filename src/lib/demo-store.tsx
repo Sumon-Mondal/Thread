@@ -19,8 +19,12 @@ import {
 } from "./demo-data";
 import { SARAH_DEMO_RECIPIENT, SARAH_FOLLOW_UP_EMAIL, isSarahFollowUp } from "./demo-recipient";
 import { speakAloud } from "./speech-announcer";
+import { detectLiveMoments } from "./live-moments";
+import type { FeedEvent, FeedSession } from "./meeting-feed";
 
 export type EngineMode = "demo" | "live";
+
+type LiveLine = { id: string; text: string; committed: boolean; speaker?: string; timeSec?: number };
 
 interface DemoState {
   mode: EngineMode;
@@ -36,8 +40,12 @@ interface DemoState {
   activeSpeakerRole: string;
   screenShared: boolean;
   latestMoment: Moment | null;
-  liveLines: { id: string; text: string; committed: boolean }[];
+  liveLines: LiveLine[];
   isDrivingMode: boolean;
+  /** The real call the Chrome extension is reading, when there is one. */
+  liveMeeting: FeedSession | null;
+  meetingTitle: string;
+  meetingPlatform: string;
 }
 
 export interface ApproveResult {
@@ -56,11 +64,13 @@ interface DemoApi extends DemoState {
   setScenario: (id: string) => void;
   executeAction: (id: string) => void;
   /** Approval from any surface (queue, iPhone). Sarah's follow-up only counts once the email is sent. */
-  approveAction: (id: string) => Promise<ApproveResult>;
+  approveAction: (id: string, customEmail?: { to: string; subject: string; body: string }) => Promise<ApproveResult>;
   addLiveLine: (text: string, committed: boolean) => void;
   addMoment: (m: Moment) => void;
   addAction: (a: AgentAction) => void;
   registerQr: (url: string, source: string) => void;
+  /** Captions, chat, people and QR codes from the extension; replaying the same events is harmless. */
+  ingestMeetingFeed: (session: FeedSession, events: FeedEvent[]) => void;
   toggleDrivingMode: () => void;
   sendReaction: (emoji?: string) => void;
 }
@@ -85,6 +95,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   const [extraMoments, setExtraMoments] = useState<Moment[]>([]);
   const [liveLines, setLiveLines] = useState<DemoState["liveLines"]>([]);
   const [sentChat, setSentChat] = useState<ChatMsg[]>([]);
+  const [liveMeeting, setLiveMeeting] = useState<FeedSession | null>(null);
+  const [meetingChat, setMeetingChat] = useState<ChatMsg[]>([]);
+  const feedSessionRef = useRef<string | null>(null);
+  const analyzedRef = useRef(new Set<string>());
   const liveId = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -107,8 +121,15 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, [playing, mode, scenario.endSec]);
 
   const transcript = useMemo(
-    () => (mode === "demo" ? scenario.transcript.filter((l) => l.timeSec <= elapsed) : []),
-    [mode, elapsed, scenario],
+    () =>
+      mode === "demo"
+        ? scenario.transcript.filter((l) => l.timeSec <= elapsed)
+        : liveLines.flatMap((l) =>
+            l.committed && l.speaker
+              ? [{ id: l.id, speaker: l.speaker, role: l.speaker === "You" ? "Attendee" : "Participant", timeSec: l.timeSec ?? 0, text: l.text }]
+              : [],
+          ),
+    [mode, elapsed, scenario, liveLines],
   );
   const moments = useMemo(() => {
     const scripted = mode === "demo" ? scenario.moments.filter((m) => m.timeSec <= elapsed) : [];
@@ -119,13 +140,17 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     [mode, elapsed, actions],
   );
   const chat = useMemo(
-    () => [...(mode === "demo" ? scenario.chat.filter((c) => c.timeSec <= elapsed) : []), ...sentChat].sort((a, b) => a.timeSec - b.timeSec),
-    [mode, elapsed, scenario, sentChat],
+    () => [...(mode === "demo" ? scenario.chat.filter((c) => c.timeSec <= elapsed) : []), ...meetingChat, ...sentChat].sort((a, b) => a.timeSec - b.timeSec),
+    [mode, elapsed, scenario, meetingChat, sentChat],
   );
 
   const lastLine = transcript[transcript.length - 1];
-  const activeSpeaker = mode === "live" ? "You" : (lastLine?.speaker ?? scenario.defaultSpeaker);
-  const activeSpeakerRole = mode === "live" ? "Attendee" : (lastLine?.role ?? scenario.defaultRole);
+  // Includes the caption still being spoken, so the stage follows whoever is talking right now.
+  const liveSpeaker = [...liveLines].reverse().find((l) => l.speaker)?.speaker;
+  const activeSpeaker = mode === "live" ? (liveSpeaker ?? "You") : (lastLine?.speaker ?? scenario.defaultSpeaker);
+  const activeSpeakerRole = mode === "live" ? (liveSpeaker && liveSpeaker !== "You" ? "Participant" : "Attendee") : (lastLine?.role ?? scenario.defaultRole);
+  const meetingTitle = mode === "live" && liveMeeting ? liveMeeting.title : scenario.meetingTitle;
+  const meetingPlatform = mode === "live" && liveMeeting ? liveMeeting.platform : scenario.platform;
   const latestMoment = moments[moments.length - 1] ?? null;
   const screenShared =
     mode === "demo" && elapsed >= scenario.screenShareStart && elapsed < scenario.screenShareEnd;
@@ -172,6 +197,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setExtraMoments([]);
     setLiveLines([]);
     setSentChat([]);
+    setLiveMeeting(null);
+    setMeetingChat([]);
+    feedSessionRef.current = null;
+    analyzedRef.current.clear();
     seenQr.current.clear();
     setPlaying(m === "demo");
   }, [scenario]);
@@ -185,15 +214,16 @@ export function DemoProvider({ children }: { children: ReactNode }) {
   }, [actions]);
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
-  const approveAction = useCallback(async (id: string): Promise<ApproveResult> => {
+  const approveAction = useCallback(async (id: string, customEmail?: { to: string; subject: string; body: string }): Promise<ApproveResult> => {
     const action = actionsRef.current.find((a) => a.id === id);
     if (!action || action.status === "executed") return { ok: true };
-    if (isSarahFollowUp(action)) {
+    if (isSarahFollowUp(action) || (customEmail && customEmail.to)) {
       try {
+        const payload = customEmail ?? { to: SARAH_DEMO_RECIPIENT, ...SARAH_FOLLOW_UP_EMAIL };
         const res = await fetch("/api/send-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: SARAH_DEMO_RECIPIENT, ...SARAH_FOLLOW_UP_EMAIL }),
+          body: JSON.stringify(payload),
         });
         const result = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; delivered?: string };
         if (!res.ok || !result.ok) return { ok: false, error: result.error ?? "Gmail could not send the email" };
@@ -256,6 +286,70 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     });
   }, [addMoment, addAction]);
   useEffect(() => { seenQr.current.clear(); }, [scenario]);
+
+  const ingestMeetingFeed = useCallback((session: FeedSession, events: FeedEvent[]) => {
+    if (feedSessionRef.current !== session.id) {
+      // A different call: start from a clean slate instead of mixing in the demo or the last meeting.
+      feedSessionRef.current = session.id;
+      analyzedRef.current.clear();
+      seenQr.current.clear();
+      setLiveLines([]);
+      setMeetingChat([]);
+      setSentChat([]);
+      setExtraMoments([]);
+      setActions([]);
+    }
+    setLiveMeeting(session);
+    const captions = new Map<string, Extract<FeedEvent, { type: "caption" }>>();
+    const chats: ChatMsg[] = [];
+    const found: Moment[] = [];
+    for (const e of events) {
+      if (e.type === "caption") {
+        captions.set(e.key, e);
+        if (e.final && !analyzedRef.current.has(e.key)) {
+          analyzedRef.current.add(e.key);
+          const { moments: ms, actions: as } = detectLiveMoments({ key: e.key, speaker: e.speaker, text: e.text, timeSec: e.t });
+          found.push(...ms);
+          as.forEach(addAction);
+        }
+      } else if (e.type === "chat") {
+        chats.push({ id: `mc-${e.msgId}`, from: e.from, text: e.text, timeSec: e.t, reactions: [] });
+      } else if (e.type === "qr") {
+        registerQr(e.data, `${e.source} (${e.platform})`);
+      }
+    }
+    if (captions.size) {
+      setLiveLines((prev) => {
+        const next = [...prev];
+        for (const e of captions.values()) {
+          const line = { id: `cap-${e.key}`, text: e.text, committed: e.final, speaker: e.speaker, timeSec: e.t };
+          const i = next.findIndex((l) => l.id === line.id);
+          if (i < 0) next.push(line);
+          else if (!next[i]!.committed || e.final) next[i] = line;
+        }
+        return next.slice(-400);
+      });
+    }
+    if (chats.length) setMeetingChat((prev) => [...prev, ...chats.filter((c) => !prev.some((p) => p.id === c.id))]);
+    if (found.length) setExtraMoments((prev) => [...prev, ...found.filter((m) => !prev.some((p) => p.id === m.id))]);
+  }, [addAction, registerQr]);
+
+  // A real call runs on the wall clock and stops when the extension reports it ended.
+  const liveStart = mode === "live" ? liveMeeting?.startedAt : undefined;
+  const liveEnd = liveMeeting?.endedAt ?? null;
+  useEffect(() => {
+    if (!liveStart) return;
+    if (liveEnd) {
+      setElapsed(Math.floor((liveEnd - liveStart) / 1000));
+      setPlaying(false);
+      return;
+    }
+    const tick = () => setElapsed(Math.floor((Date.now() - liveStart) / 1000));
+    tick();
+    setPlaying(true);
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [liveStart, liveEnd]);
 
   // Participant chat messages with an email, a link or a request become agent tasks.
   useEffect(() => {
@@ -365,6 +459,10 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     addMoment,
     addAction,
     registerQr,
+    ingestMeetingFeed,
+    liveMeeting,
+    meetingTitle,
+    meetingPlatform,
   };
 
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;

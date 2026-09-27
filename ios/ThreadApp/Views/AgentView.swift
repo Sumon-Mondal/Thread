@@ -173,6 +173,10 @@ public struct AgentView: View {
         .sheet(isPresented: $isDocumentPickerPresented) {
             DocumentPicker(attachedFileName: $attachedFileName, attachedText: $attachedResumeText)
         }
+        .sheet(item: $manager.editingEmailAction) { emailAction in
+            EmailComposerSheet(action: emailAction)
+                .environmentObject(manager)
+        }
     }
 
     // MARK: - Header
@@ -331,13 +335,40 @@ public struct AgentView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Text(email.body)
-                    .font(.system(size: 11))
-                    .foregroundColor(.white.opacity(0.85))
-                    .lineLimit(4)
+                Button(action: {
+                    openEmailComposerForDraft(email: email)
+                }) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(email.body)
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.85))
+                            .lineLimit(4)
+                            .multilineTextAlignment(.leading)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if !email.isSent {
+                            HStack(spacing: 4) {
+                                Image(systemName: "square.and.pencil")
+                                    .font(.system(size: 10))
+                                Text("Tap to review & edit full draft")
+                                    .font(.system(size: 10, weight: .medium))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 9))
+                            }
+                            .foregroundColor(.cyan)
+                            .padding(.top, 2)
+                        }
+                    }
                     .padding(8)
                     .background(Color.black.opacity(0.3))
                     .cornerRadius(6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(email.isSent ? Color.clear : Color.cyan.opacity(0.2), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
 
                 Button(action: {
                     if !email.isSent {
@@ -371,6 +402,31 @@ public struct AgentView: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.teal.opacity(0.3), lineWidth: 1))
             )
         )
+    }
+
+    private func openEmailComposerForDraft(email: AgentEmailCard) {
+        guard !email.isSent else { return }
+        if let existing = manager.actions.first(where: { $0.emailTo == email.to }) {
+            manager.editingEmailAction = existing
+            return
+        }
+        if let pending = manager.actions.first(where: { ($0.kind == "email" || $0.kind == "reply" || $0.kind == "apply") && $0.status == "staged" }) {
+            manager.editingEmailAction = pending
+            return
+        }
+        let fallback = DemoAction(
+            id: "chat_draft_\(email.to)",
+            label: "Send follow-up to \(email.to)",
+            status: "staged",
+            timeSec: manager.elapsed,
+            detail: email.body,
+            link: "mailto:\(email.to)",
+            kind: "email",
+            emailTo: email.to,
+            emailSubject: email.subject,
+            emailBody: email.body
+        )
+        manager.editingEmailAction = fallback
     }
 
     // MARK: - Calendar Card View

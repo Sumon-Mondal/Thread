@@ -1,283 +1,185 @@
-// Thread Extension Background Service Worker (Manifest V3)
+// Thread background worker: keeps one running log per meeting tab and streams it to Thread pages
+// (the side panel and any open Thread tab) over "thread-feed" ports.
 
-// Configure the side panel to open on extension icon click
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => {
-  console.error("Failed to set side panel behavior:", error);
-});
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
-// In-memory state buffer
-let meetingState = {
-  active: false,
-  platform: null,
-  meetingTitle: "Meeting in progress",
-  speaker: "",
-  lines: [],
-  moments: [],
-  actions: [],
-  chat: [],
-  startedAt: null,
-};
+const RESUME_WINDOW_MS = 10 * 60 * 1000;
+const MAX_LOG = 1500;
 
-// Initialize from local storage if available
-chrome.storage.local.get(["threadState"], (res) => {
-  if (res.threadState) {
-    meetingState = { ...meetingState, ...res.threadState };
-  }
-});
+let sessions = {}; // tabId -> session
+let latestTab = null;
+const ports = new Set();
 
-function persistState() {
-  chrome.storage.local.set({ threadState: meetingState });
-  syncToBackend();
+// Chrome stops idle workers, so the log lives in session storage and is reloaded on wake.
+const ready = chrome.storage.session
+  .get(["threadSessions", "threadLatestTab"])
+  .then((r) => {
+    sessions = r.threadSessions ?? {};
+    latestTab = r.threadLatestTab ?? null;
+  })
+  .catch(() => {});
+
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    chrome.storage.session.set({ threadSessions: sessions, threadLatestTab: latestTab }).catch(() => {});
+  }, 300);
 }
 
-async function syncToBackend() {
-  if (!meetingState.active) return;
-  const payload = {
-    meetingTitle: meetingState.meetingTitle || "Live Meeting",
-    playing: meetingState.active,
-    elapsed: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
-    speaker: meetingState.speaker || "Speaker",
-    lastLine: meetingState.lines[meetingState.lines.length - 1]?.text || "",
-    source: "extension",
-    momentCount: meetingState.moments.length,
-    latestMoment: meetingState.moments[meetingState.moments.length - 1] || null,
-    actions: meetingState.actions.slice(-20),
-    transcript: meetingState.lines.slice(-20).map((l) => ({ id: l.id, speaker: l.speaker, text: l.text })),
-    moments: meetingState.moments.slice(-20),
+function newSession(tabId, ev) {
+  return {
+    id: `${ev.at.toString(36)}-${tabId}`,
+    tabId,
+    platform: ev.platform,
+    title: ev.title || `${ev.platform} call`,
+    url: ev.url,
+    startedAt: ev.at,
+    endedAt: null,
+    participants: [],
+    status: { captions: false, chat: false },
+    counts: { captions: 0, chat: 0, qr: 0 },
+    log: [],
+    captionIndex: {},
+    chatIds: {},
+    qr: {},
   };
+}
 
-  const endpoints = [
-    "http://localhost:3000/api/live-state",
-    "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app/api/live-state",
-  ];
+function summary(s) {
+  const { log, captionIndex, chatIds, qr, ...rest } = s;
+  return rest;
+}
 
-  for (const url of endpoints) {
+function latestSession() {
+  if (latestTab !== null && sessions[latestTab]) return sessions[latestTab];
+  return Object.values(sessions).sort((a, b) => b.startedAt - a.startedAt)[0] ?? null;
+}
+
+function trim(s) {
+  if (s.log.length <= MAX_LOG) return;
+  s.log = s.log.slice(-MAX_LOG + 200);
+  s.captionIndex = {};
+  s.log.forEach((e, i) => {
+    if (e.type === "caption") s.captionIndex[e.key] = i;
+  });
+}
+
+function broadcast(msg) {
+  for (const port of ports) {
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        const data = await res.json().catch(() => null);
-        if (data && data.commands && data.commands.length > 0) {
-          for (const cmd of data.commands) {
-            if (cmd.command === "approve" && cmd.actionId) {
-              const action = meetingState.actions.find((a) => a.id === cmd.actionId);
-              if (action && action.status !== "executed") {
-                action.status = "executed";
-                updateBadge();
-                chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
-              }
-            }
-          }
-        }
-      }
-    } catch (_) {}
+      port.postMessage(msg);
+    } catch {
+      ports.delete(port);
+    }
   }
 }
 
-// Update action badge
 function updateBadge() {
-  const stagedCount = meetingState.actions.filter((a) => a.status === "staged").length;
-  if (stagedCount > 0) {
-    chrome.action.setBadgeText({ text: String(stagedCount) });
-    chrome.action.setBadgeBackgroundColor({ color: "#f59e0b" }); // Amber
-  } else if (meetingState.active) {
-    chrome.action.setBadgeText({ text: "LIVE" });
-    chrome.action.setBadgeBackgroundColor({ color: "#10b981" }); // Emerald
-  } else {
-    chrome.action.setBadgeText({ text: "" });
-  }
+  const s = latestSession();
+  const live = s && !s.endedAt;
+  chrome.action.setBadgeText({ text: live ? "LIVE" : "" }).catch(() => {});
+  if (live) chrome.action.setBadgeBackgroundColor({ color: "#10b981" }).catch(() => {});
 }
 
-// Simple heuristic moment classifier for incoming live text
-function detectMoment(speaker, text) {
-  const t = text.toLowerCase();
-  if (/\b(internship|job|opportunity|hiring|opening|join our team)\b/i.test(t)) {
-    return {
-      id: `m-${Date.now()}`,
-      type: "OPPORTUNITY",
-      speaker,
-      takeaway: text.slice(0, 120),
-      timeSec: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
-    };
+async function handle(tabId, ev) {
+  await ready;
+  let s = sessions[tabId];
+
+  if (ev.type === "meeting" && ev.state === "started") {
+    const rejoined = s && s.url === ev.url && s.endedAt && ev.at - s.endedAt < RESUME_WINDOW_MS;
+    if (rejoined) s.endedAt = null;
+    else {
+      s = newSession(tabId, ev);
+      sessions[tabId] = s;
+    }
+    latestTab = tabId;
+    broadcast({ kind: "history", session: summary(s), events: s.log });
+    updateBadge();
+    save();
+    return;
   }
-  if (/\b(deadline|due|by (monday|tuesday|wednesday|thursday|friday|saturday|sunday)|cutoff|firmly)\b/i.test(t)) {
-    return {
-      id: `m-${Date.now()}`,
-      type: "DEADLINE",
-      speaker,
-      takeaway: text.slice(0, 120),
-      timeSec: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
-    };
+  if (!s || (s.endedAt && ev.type !== "meeting")) return;
+
+  const e = { ...ev, sessionId: s.id, t: Math.max(0, Math.round((ev.at - s.startedAt) / 1000)) };
+  switch (ev.type) {
+    case "meeting":
+      if (ev.state === "updated" && ev.title) s.title = ev.title;
+      if (ev.state === "ended") {
+        if (s.endedAt) return;
+        s.endedAt = ev.at;
+      }
+      s.log.push(e);
+      break;
+    case "caption": {
+      const i = s.captionIndex[e.key];
+      if (i === undefined) {
+        s.captionIndex[e.key] = s.log.length;
+        s.log.push(e);
+      } else {
+        const prev = s.log[i];
+        if (prev.final) return;
+        e.t = prev.t;
+        s.log[i] = e;
+      }
+      if (e.final) s.counts.captions++;
+      break;
+    }
+    case "chat":
+      if (s.chatIds[e.msgId]) return;
+      s.chatIds[e.msgId] = 1;
+      s.counts.chat++;
+      s.log.push(e);
+      break;
+    case "people":
+      s.participants = e.names;
+      s.log.push(e);
+      break;
+    case "qr":
+      if (s.qr[e.data]) return;
+      s.qr[e.data] = 1;
+      s.counts.qr++;
+      s.log.push(e);
+      break;
+    case "status":
+      s.status = { captions: Boolean(e.captions), chat: Boolean(e.chat) };
+      break;
+    default:
+      return;
   }
-  if (/\b(link|qr|portal|document|slide|github|notion)\b/i.test(t)) {
-    return {
-      id: `m-${Date.now()}`,
-      type: "RESOURCE",
-      speaker,
-      takeaway: text.slice(0, 120),
-      timeSec: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
-    };
-  }
-  if (/\b(decided|agreed|decision|we will lead with|approved)\b/i.test(t)) {
-    return {
-      id: `m-${Date.now()}`,
-      type: "DECISION",
-      speaker,
-      takeaway: text.slice(0, 120),
-      timeSec: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
-    };
-  }
-  return null;
+  trim(s);
+  broadcast({ kind: "event", session: summary(s), event: e });
+  updateBadge();
+  save();
 }
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "MEETING_STARTED") {
-    meetingState.active = true;
-    meetingState.platform = message.platform;
-    meetingState.meetingTitle = message.title || `${message.platform} Call`;
-    meetingState.startedAt = Date.now();
-    updateBadge();
-    persistState();
-    sendResponse({ ok: true });
-    return true;
-  }
-
-  if (message.type === "NEW_CAPTION") {
-    const { speaker, text } = message;
-    if (!text || text.trim().length === 0) return;
-
-    meetingState.active = true;
-    meetingState.speaker = speaker || "Speaker";
-    const lineObj = {
-      id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      speaker: meetingState.speaker,
-      text: text.trim(),
-      at: Date.now(),
-    };
-    meetingState.lines.push(lineObj);
-    if (meetingState.lines.length > 200) meetingState.lines.shift();
-
-    const moment = detectMoment(speaker, text);
-    if (moment) {
-      meetingState.moments.push(moment);
-      // Stage an action for opportunity or deadline
-      if (moment.type === "OPPORTUNITY" || moment.type === "DEADLINE") {
-        meetingState.actions.push({
-          id: `act-${Date.now()}`,
-          label: `${moment.type}: ${moment.takeaway.slice(0, 60)}…`,
-          detail: `Mentioned by ${speaker} in ${meetingState.platform}`,
-          status: "staged",
-          kind: moment.type === "DEADLINE" ? "reminder" : "apply",
-        });
-      }
-    }
-
-    updateBadge();
-    persistState();
-    // Forward to side panel
-    chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
-    sendResponse({ ok: true });
-    return true;
-  }
-
-  if (message.type === "NEW_CHAT_MESSAGE") {
-    const { from, text, links, emails } = message;
-    const chatItem = { id: `chat-${Date.now()}`, from, text, at: Date.now() };
-    meetingState.chat.push(chatItem);
-
-    // If chat contains a link or an email, stage an agent task
-    if (emails && emails.length > 0) {
-      for (const email of emails) {
-        meetingState.actions.push({
-          id: `act-email-${Date.now()}`,
-          label: `Draft email to ${from} (${email})`,
-          detail: `From chat: "${text.slice(0, 80)}"`,
-          status: "staged",
-          kind: "reply",
-          to: email,
-        });
-      }
-    } else if (links && links.length > 0) {
-      for (const link of links) {
-        meetingState.actions.push({
-          id: `act-link-${Date.now()}`,
-          label: `Open & save link shared by ${from}`,
-          detail: link,
-          status: "staged",
-          kind: "apply",
-          link,
-        });
-      }
-    }
-
-    updateBadge();
-    persistState();
-    chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
-    sendResponse({ ok: true });
-    return true;
-  }
-
-  if (message.type === "QR_DETECTED") {
-    const { url, source } = message;
-    meetingState.moments.push({
-      id: `qr-${Date.now()}`,
-      type: "RESOURCE",
-      speaker: source || "Shared Screen",
-      takeaway: `QR Code detected: ${url}`,
-      timeSec: Math.floor((Date.now() - (meetingState.startedAt || Date.now())) / 1000),
-      link: url,
-    });
-    meetingState.actions.push({
-      id: `act-qr-${Date.now()}`,
-      label: `Open decoded QR link: ${url.replace(/^https?:\/\//, "").slice(0, 45)}…`,
-      detail: `Decoded from screen share by Thread`,
-      status: "staged",
-      kind: "apply",
-      link: url,
-    });
-    updateBadge();
-    persistState();
-    chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
-    sendResponse({ ok: true });
-    return true;
-  }
-
-  if (message.type === "GET_STATE") {
-    sendResponse({ state: meetingState });
-    return true;
-  }
-
-  if (message.type === "EXECUTE_ACTION") {
-    const action = meetingState.actions.find((a) => a.id === message.actionId);
-    if (action) {
-      action.status = "executed";
-      updateBadge();
-      persistState();
-      chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
-    }
-    sendResponse({ ok: true });
-    return true;
-  }
-
-  if (message.type === "RESET_STATE") {
-    meetingState = {
-      active: false,
-      platform: null,
-      meetingTitle: "Meeting in progress",
-      speaker: "",
-      lines: [],
-      moments: [],
-      actions: [],
-      chat: [],
-      startedAt: null,
-    };
-    updateBadge();
-    persistState();
-    chrome.runtime.sendMessage({ type: "STATE_UPDATED", state: meetingState }).catch(() => {});
-    sendResponse({ ok: true });
-    return true;
-  }
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.type === "thread:event" && sender.tab?.id !== undefined) void handle(sender.tab.id, msg.event);
 });
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "thread-feed") return;
+  ports.add(port);
+  port.onDisconnect.addListener(() => ports.delete(port));
+  port.onMessage.addListener(async (msg) => {
+    if (msg?.type !== "hello") return;
+    await ready;
+    const s = latestSession();
+    port.postMessage(s ? { kind: "history", session: summary(s), events: s.log } : { kind: "idle" });
+  });
+});
+
+function endIfLive(tabId) {
+  const s = sessions[tabId];
+  if (s && !s.endedAt) void handle(tabId, { type: "meeting", state: "ended", platform: s.platform, at: Date.now() });
+}
+
+chrome.tabs.onRemoved.addListener(endIfLive);
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  const s = sessions[tabId];
+  if (!s || s.endedAt || !info.url) return;
+  const next = new URL(info.url);
+  if (next.origin + next.pathname !== s.url) endIfLive(tabId);
+});
+
+void ready.then(updateBadge);

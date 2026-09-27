@@ -63,6 +63,33 @@ public struct DemoAction: Identifiable, Hashable {
     public let link: String?
     /// Same kinds as the web queue: "apply" | "reminder" | "calendar" | "reply" | "log".
     public var kind: String? = nil
+    public var emailTo: String? = nil
+    public var emailSubject: String? = nil
+    public var emailBody: String? = nil
+
+    public init(
+        id: String,
+        label: String,
+        status: String,
+        timeSec: Int,
+        detail: String? = nil,
+        link: String? = nil,
+        kind: String? = nil,
+        emailTo: String? = nil,
+        emailSubject: String? = nil,
+        emailBody: String? = nil
+    ) {
+        self.id = id
+        self.label = label
+        self.status = status
+        self.timeSec = timeSec
+        self.detail = detail
+        self.link = link
+        self.kind = kind
+        self.emailTo = emailTo
+        self.emailSubject = emailSubject
+        self.emailBody = emailBody
+    }
 }
 
 public struct VisionSlide {
@@ -221,6 +248,7 @@ public class ThreadSessionManager: ObservableObject {
     // In-Meeting Reaction Feedback (e.g. Hands-Free Driving Thumbs Up)
     @Published public var showFloatingReaction: Bool = false
     @Published public var lastSentReaction: String? = nil
+    @Published public var editingEmailAction: DemoAction? = nil
 
     // MARK: - Voice Announcements & Driving Speech
     public func speakAloud(_ text: String, force: Bool = false) {
@@ -484,10 +512,32 @@ public class ThreadSessionManager: ObservableObject {
             DemoAction(id: "form-swe2027", label: "Go through QR Code & Apply", status: "staged", timeSec: 36, detail: "Gemini vision decoded QR code on slide · Pre-fills SWE application", link: "https://novadynamics.io/careers/apply-2027"),
             DemoAction(id: "a3", label: "Set deadline reminder for Oct 18", status: "staged", timeSec: 66, detail: "Google Calendar & iOS Reminders sync", link: nil),
             DemoAction(id: "form-qna", label: "Found link in chat: RSVP for Q&A", status: "staged", timeSec: 96, detail: "Registers for Thursday 4 PM session with Priya Nair", link: "https://novadynamics.io/events/qna-rsvp"),
-            DemoAction(id: "a2", label: "Send a follow-up email to Sarah Chen", status: "staged", timeSec: 126, detail: "Attaches portfolio link & references Discovery Day session", link: "mailto:sarah.chen@novadynamics.internal"),
+            DemoAction(
+                id: "a2",
+                label: "Send a follow-up email to Sarah Chen",
+                status: "staged",
+                timeSec: 126,
+                detail: "Attaches portfolio link & references Discovery Day session",
+                link: "mailto:shumonmondale@gmail.com",
+                kind: "reply",
+                emailTo: "shumonmondale@gmail.com",
+                emailSubject: "Nova Dynamics Discovery Day — Follow-up & Portfolio",
+                emailBody: "Hi Sarah,\n\nThank you for hosting the Nova Dynamics Discovery Day session today! I loved hearing about the platform, infrastructure, and applied AI internship roles. I've submitted my application through the portal and attached my GitHub portfolio for reference.\n\nLooking forward to staying in touch,\nSumon Mondal"
+            ),
             // Jordan Lee is only mentioned at 5:11, so his items can't be staged before then.
             DemoAction(id: "form-sustainability", label: "Sign up for Campus Recycling Committee", status: "staged", timeSec: 316, detail: "Registers for Jordan Lee's smart recycling initiative", link: "https://helixsupply.com/sustainability/smart-bins"),
-            DemoAction(id: "a5", label: "Send email to Jordan Lee re: Smart Bins", status: "staged", timeSec: 321, detail: "Campus recycling initiative cutoff Nov 15", link: "mailto:jordan.lee@helixsupply.com")
+            DemoAction(
+                id: "a5",
+                label: "Send email to Jordan Lee re: Smart Bins",
+                status: "staged",
+                timeSec: 321,
+                detail: "Campus recycling initiative cutoff Nov 15",
+                link: "mailto:jordan.lee@helixsupply.com",
+                kind: "reply",
+                emailTo: "jordan.lee@helixsupply.com",
+                emailSubject: "Campus Waste Management & Smart Bins Initiative",
+                emailBody: "Hi Jordan,\n\nFollowing up on Priya's announcement during Discovery Day regarding the campus recycling initiative. I'd love to join the team before November 15 to help implement the smart bins program.\n\nBest regards,\nSumon Mondal"
+            )
         ]
 
         allTranscript = [
@@ -2092,18 +2142,30 @@ public class ThreadSessionManager: ObservableObject {
         updateLiveActivity()
     }
 
-    public func approveAction(id: String) {
+    public func approveAction(
+        id: String,
+        customTo: String? = nil,
+        customSubject: String? = nil,
+        customBody: String? = nil
+    ) {
         guard let idx = actions.firstIndex(where: { $0.id == id }) else { return }
         actions[idx].status = "executed"
+        if let customTo = customTo { actions[idx].emailTo = customTo }
+        if let customSubject = customSubject { actions[idx].emailSubject = customSubject }
+        if let customBody = customBody { actions[idx].emailBody = customBody }
         let act = actions[idx]
 
-        // Only actions that carry a real address send mail; a failed send goes back to the queue.
-        if let link = act.link, link.hasPrefix("mailto:") {
+        let isEmail = (act.link?.hasPrefix("mailto:") == true) || act.emailTo != nil || act.id == "a2" || act.id == "a5" || act.label.lowercased().contains("email")
+        if isEmail {
+            let to = customTo ?? act.emailTo ?? (act.link?.hasPrefix("mailto:") == true ? String(act.link!.dropFirst("mailto:".count)) : "shumonmondale@gmail.com")
+            let subject = customSubject ?? act.emailSubject ?? "Follow-up: \(meetingTitle)"
+            let body = customBody ?? act.emailBody ?? "Hi,\n\nFollowing up from our live session today. Looking forward to connecting further.\n\nBest regards,\nSumon Mondal"
+
             Task {
                 let sent = await executeDirectEmail(
-                    to: String(link.dropFirst("mailto:".count)),
-                    subject: "Follow-up: \(meetingTitle)",
-                    body: "Hi,\n\nFollowing up from our live session today. Looking forward to connecting further.\n\nBest regards,\nSumon Mondal"
+                    to: to,
+                    subject: subject,
+                    body: body
                 )
                 if !sent { restageAction(id: id) }
             }

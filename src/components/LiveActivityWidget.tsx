@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * iOS preview pages (/ios-preview, /lockscreen) kept for the future mobile app.
  */
 export function LiveActivityWidget({ compact = false }: { compact?: boolean }) {
-  const { elapsed, moments, actions, latestMoment, activeSpeaker, playing, mode, scenario } = useDemo();
+  const { elapsed, moments, actions, latestMoment, activeSpeaker, playing, mode, meetingTitle } = useDemo();
   const live = playing || mode === "live";
   const executed = actions.filter((a) => a.status === "executed").length;
   const resource = moments.find((m) => m.type === "RESOURCE");
@@ -30,7 +30,7 @@ export function LiveActivityWidget({ compact = false }: { compact?: boolean }) {
       </div>
 
       {/* Meeting title */}
-      <p className="truncate px-4 pt-1 text-[13px] font-semibold text-white/90">{scenario.meetingTitle}</p>
+      <p className="truncate px-4 pt-1 text-[13px] font-semibold text-white/90">{meetingTitle}</p>
 
       {/* Speaker + badge */}
       <div className="flex items-center gap-2 px-4 pt-2">

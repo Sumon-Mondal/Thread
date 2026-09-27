@@ -16,22 +16,22 @@ export function LiveStatePublisher() {
         ? m.headline ?? m.takeaway.split(/[.:;]/)[0] ?? m.takeaway
         : s.activeSpeaker ? `${s.activeSpeaker} speaking` : "Live Call";
       const shortHeadline = headline.length > 35 ? `${headline.slice(0, 32)}…` : headline;
-      const status = s.playing ? "live" : s.elapsed >= s.scenario.endSec ? "ended" : "paused";
+      const status = s.playing ? "live" : s.liveMeeting?.endedAt || s.elapsed >= s.scenario.endSec ? "ended" : "paused";
       void fetch("/api/live-state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          meetingTitle: s.scenario.meetingTitle.slice(0, 200),
+          meetingTitle: s.meetingTitle.slice(0, 200),
           playing: s.playing,
           status,
           elapsed: Math.floor(s.elapsed),
           speaker: (s.activeSpeaker || "").slice(0, 100),
           speakerRole: (s.activeSpeakerRole || "").slice(0, 100),
-          platform: s.scenario.platform.slice(0, 50),
+          platform: s.meetingPlatform.slice(0, 50),
           lastLine: (s.transcript[s.transcript.length - 1]?.text ?? "").slice(0, 500),
           shortHeadline,
           liveSummary: (m ? m.takeaway : (s.transcript[s.transcript.length - 1]?.text ?? "")).slice(0, 300),
-          source: "web",
+          source: s.liveMeeting ? "extension" : "web",
           momentCount: s.moments.length,
           latestMoment: m ? { type: m.type, takeaway: m.takeaway.slice(0, 300) } : null,
           actions: s.actions.slice(0, 50).map((a) => ({

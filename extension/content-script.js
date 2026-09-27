@@ -1,171 +1,412 @@
-// Thread Content Script: Observes Meet, Zoom, and Teams DOM for Captions, Chat & Shared Slides
+// Thread meeting reader. Runs inside the Meet, Zoom or Teams tab and turns the call into events for Thread:
+// meeting start/end, captions with speaker names, chat messages, participants and QR codes on screen.
 (() => {
-  console.log("[Thread Extension] Content script attached to:", window.location.href);
+  if (window.__threadMeetingReader) return;
+  window.__threadMeetingReader = true;
 
-  const hostname = window.location.hostname;
-  let platform = "Web Meeting";
-  if (hostname.includes("meet.google.com")) platform = "Google Meet";
-  else if (hostname.includes("zoom.us")) platform = "Zoom";
-  else if (hostname.includes("teams.microsoft.com")) platform = "Microsoft Teams";
+  const host = location.hostname;
+  const platform =
+    host === "meet.google.com" ? "Google Meet"
+    : host.endsWith("zoom.us") ? "Zoom"
+    : host.startsWith("teams.") ? "Microsoft Teams"
+    : null;
+  if (!platform) return;
 
-  // Notify service worker that a meeting tab has been detected
-  chrome.runtime.sendMessage({
-    type: "MEETING_STARTED",
-    platform,
-    title: document.title || `${platform} Meeting`,
-  }).catch(() => {});
+  const textOf = (el) => (el ? (el.innerText ?? el.textContent ?? "") : "").trim();
+  const linesOf = (el) => textOf(el).split("\n").map((s) => s.trim()).filter(Boolean);
+  const clean = (s) => (s ?? "").replace(/\s+/g, " ").trim();
+  const TIME_RE = /^\d{1,2}:\d{2}(?:\s?[AP]M)?$/i;
 
-  let lastCaptionText = "";
-  let lastSpeaker = "";
-
-  // 1. Monitor Captions via MutationObserver
-  function initCaptionObserver() {
-    const observer = new MutationObserver(() => {
-      // Google Meet Captions
-      if (platform === "Google Meet") {
-        // Look for typical Google Meet caption containers
-        const captionNodes = document.querySelectorAll('[jsname="YSvySm"], div[class*="iTTPOb"], div[class*="caption"]');
-        if (captionNodes.length > 0) {
-          const latest = captionNodes[captionNodes.length - 1];
-          const text = latest.innerText || latest.textContent || "";
-          
-          // Look for speaker name
-          const parent = latest.closest('[jsname="tgaKEf"]') || latest.parentElement;
-          const speakerEl = parent?.querySelector('[class*="zsT0Vo"], [class*="speaker"], [jsname="WBs04"]');
-          const speaker = speakerEl ? speakerEl.innerText.trim() : "Speaker";
-
-          if (text && text !== lastCaptionText && text.trim().length > 3) {
-            lastCaptionText = text;
-            lastSpeaker = speaker;
-            chrome.runtime.sendMessage({
-              type: "NEW_CAPTION",
-              platform,
-              speaker,
-              text,
-            }).catch(() => {});
-          }
-        }
+  // Meet draws its icons as ligature text inside <i>, e.g. "call_end", which stays stable across redesigns.
+  function iconButton(name) {
+    for (const el of document.querySelectorAll("i")) {
+      if (el.childElementCount === 0 && el.textContent.trim() === name) {
+        const button = el.closest("button, [role='button']");
+        if (button) return button;
       }
-
-      // Zoom Web Captions
-      if (platform === "Zoom") {
-        const captionNodes = document.querySelectorAll('.caption-content, [class*="caption-text"], .meeting-captions');
-        if (captionNodes.length > 0) {
-          const latest = captionNodes[captionNodes.length - 1];
-          const text = latest.innerText || "";
-          if (text && text !== lastCaptionText) {
-            lastCaptionText = text;
-            chrome.runtime.sendMessage({
-              type: "NEW_CAPTION",
-              platform,
-              speaker: "Zoom Attendee",
-              text,
-            }).catch(() => {});
-          }
-        }
-      }
-
-      // Teams Web Captions
-      if (platform === "Microsoft Teams") {
-        const captionNodes = document.querySelectorAll('[data-tid="closed-captions-renderer"] span');
-        if (captionNodes.length > 0) {
-          const latest = captionNodes[captionNodes.length - 1];
-          const text = latest.innerText || "";
-          if (text && text !== lastCaptionText) {
-            lastCaptionText = text;
-            chrome.runtime.sendMessage({
-              type: "NEW_CAPTION",
-              platform,
-              speaker: "Teams Speaker",
-              text,
-            }).catch(() => {});
-          }
-        }
-      }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+    return null;
   }
 
-  // 2. Monitor Meeting Chat for links, emails, and action requests
-  const seenChatMessages = new Set();
-  function initChatObserver() {
-    const chatObserver = new MutationObserver(() => {
-      // Look for chat message bubbles across Meet, Zoom, Teams
-      const messageElements = document.querySelectorAll(
-        '[data-message-text], [jsname="xySENc"], div[class*="GDhqjd"], .chat-item__chat-info-msg, [data-tid="chat-pane-item"]'
-      );
+  // ---- Caption entries: speaker on the first line, what they said below it ----
 
-      messageElements.forEach((el) => {
-        const text = el.innerText || el.textContent || "";
-        if (!text || text.length < 3 || seenChatMessages.has(text)) return;
-        seenChatMessages.add(text);
-
-        // Find speaker/author if present
-        const authorEl = el.closest('[class*="message-wrapper"], [class*="chat-item"]')?.querySelector('[class*="name"], [class*="sender"], [class*="author"]');
-        const from = authorEl ? authorEl.innerText.trim() : "Participant";
-
-        const emails = text.match(/[\w.+-]+@[\w-]+\.[\w.]+/g) || [];
-        const links = text.match(/https?:\/\/[^\s"'<>]+/g) || [];
-
-        if (emails.length > 0 || links.length > 0 || /\b(please|rsvp|submit|send|deadline|due)\b/i.test(text)) {
-          chrome.runtime.sendMessage({
-            type: "NEW_CHAT_MESSAGE",
-            from,
-            text,
-            emails,
-            links,
-          }).catch(() => {});
-        }
-      });
-    });
-
-    chatObserver.observe(document.body, { childList: true, subtree: true });
+  function looksLikeEntry(el) {
+    if (el.matches("button, [role='button']")) return false;
+    const lines = linesOf(el);
+    return lines.length >= 2 && lines[0].length <= 60;
   }
 
-  // 3. Screen Share Video Canvas Grabber (Periodic slide check)
-  function initSlideWatcher() {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
+  function entriesIn(el, depth = 0) {
+    const kids = [...el.children].filter((k) => textOf(k));
+    const entries = kids.filter(looksLikeEntry);
+    if (entries.length > 1) return entries;
+    if (entries.length === 1 && depth < 5) {
+      const inner = entriesIn(entries[0], depth + 1);
+      return inner.length > 1 ? inner : entries;
+    }
+    return [];
+  }
 
-    setInterval(() => {
-      const videos = Array.from(document.querySelectorAll("video"));
-      // The screen share video is usually the largest video element on the screen
-      let largestVideo = null;
-      let maxArea = 0;
-      videos.forEach((v) => {
-        const rect = v.getBoundingClientRect();
-        const area = rect.width * rect.height;
-        if (area > maxArea && rect.width > 300) {
-          maxArea = area;
-          largestVideo = v;
-        }
+  function parseEntry(el, fallbackSpeaker) {
+    const lines = linesOf(el);
+    if (lines.length >= 2) return { node: el, speaker: lines[0], text: clean(lines.slice(1).join(" ")) };
+    const named = lines[0]?.match(/^([^:]{1,40}):\s+(.+)$/);
+    if (named) return { node: el, speaker: clean(named[1]), text: clean(named[2]) };
+    return fallbackSpeaker && lines[0] ? { node: el, speaker: fallbackSpeaker, text: clean(lines[0]) } : null;
+  }
+
+  // ---- Chat: a list of groups, each "sender, optional time, one line per message" ----
+
+  function chatFromGroups(list) {
+    let groups = [...list.children];
+    if (groups.length === 1 && groups[0].children.length > 1) groups = [...groups[0].children];
+    const out = [];
+    for (const group of groups) {
+      const lines = linesOf(group);
+      if (lines.length < 2) continue;
+      const from = lines[0];
+      let start = 1;
+      let time = "";
+      if (TIME_RE.test(lines[1])) {
+        time = lines[1];
+        start = 2;
+      }
+      lines.slice(start).forEach((text, n) => {
+        if (!TIME_RE.test(text)) out.push({ from, text, key: `${from}|${time}|${n}|${text}` });
       });
+    }
+    return out;
+  }
 
-      if (!largestVideo || largestVideo.paused || largestVideo.ended) return;
+  // The chat list is whatever live region sits in the same panel as the "Send a message" box.
+  function chatListNear(composerSelector) {
+    const composer = document.querySelector(composerSelector);
+    for (let a = composer?.parentElement; a && a !== document.body; a = a.parentElement) {
+      const list = a.querySelector("[aria-live='polite'], [role='log'], [role='list']");
+      if (list && !list.contains(composer)) return list;
+    }
+    return null;
+  }
 
+  function meetCaptionRegion() {
+    return (
+      document.querySelector("[role='region'][aria-label*='aption' i]") ||
+      document.querySelector("div[jsname='dsyhDe']") ||
+      document.querySelector(".a4cQT")
+    );
+  }
+
+  const MEET_COMPOSER = "textarea[aria-label*='message' i], [contenteditable='true'][aria-label*='message' i]";
+
+  const adapters = {
+    "Google Meet": {
+      inCall: () => Boolean(document.querySelector("button[aria-label*='Leave call' i]") || iconButton("call_end")),
+      title: () => {
+        const named = document.querySelector("[data-meeting-title]")?.getAttribute("data-meeting-title");
+        const fromTab = document.title.replace(/^Meet\s*[-–—:]\s*/i, "").trim();
+        return clean(named || (fromTab && fromTab !== "Meet" ? fromTab : "") || location.pathname.slice(1)) || "Google Meet call";
+      },
+      captionsOn: () => Boolean(meetCaptionRegion()),
+      enableCaptions: () => {
+        const button = document.querySelector("button[aria-label*='Turn on captions' i]") || iconButton("closed_caption_off");
+        if (!button || button.getAttribute("aria-pressed") === "true") return false;
+        button.click();
+        return true;
+      },
+      captions: () => {
+        const region = meetCaptionRegion();
+        return region ? entriesIn(region).map((el) => parseEntry(el)).filter(Boolean) : [];
+      },
+      people: () => {
+        const names = new Set();
+        for (const tile of document.querySelectorAll("[data-participant-id]")) {
+          const name =
+            tile.querySelector("[data-self-name]")?.getAttribute("data-self-name") ||
+            textOf(tile.querySelector(".notranslate")) ||
+            linesOf(tile)[0];
+          if (name && name.length <= 60) names.add(clean(name));
+        }
+        for (const item of document.querySelectorAll("[role='listitem'][aria-label]")) {
+          if (item.closest("[aria-label*='articipant' i], [aria-label*='people' i]")) names.add(clean(item.getAttribute("aria-label")));
+        }
+        return [...names];
+      },
+      chatOpen: () => Boolean(chatListNear(MEET_COMPOSER)),
+      chat: () => {
+        const list = chatListNear(MEET_COMPOSER);
+        return list ? chatFromGroups(list) : [];
+      },
+    },
+
+    // Zoom and Teams web clients: best effort from their public markup.
+    Zoom: {
+      inCall: () => Boolean(document.querySelector(".footer__leave-btn, [class*='leave-meeting'], button[aria-label*='Leave' i]")),
+      title: () => clean(textOf(document.querySelector("[class*='meeting-topic'], .meeting-info-container__topic")) || document.title.replace(/\s*[-|]\s*Zoom.*$/i, "")) || "Zoom meeting",
+      captionsOn: () => Boolean(document.querySelector("[class*='live-transcription-subtitle'], [class*='lt-full-transcript']")),
+      enableCaptions: () => false,
+      captions: () =>
+        [...document.querySelectorAll("[class*='lt-full-transcript__item'], [class*='live-transcription-subtitle__item']")]
+          .map((el) => parseEntry(el, "Speaker"))
+          .filter(Boolean),
+      people: () =>
+        [...document.querySelectorAll("[class*='participants-item__display-name'], [class*='video-avatar__avatar-name']")]
+          .map((el) => clean(textOf(el)))
+          .filter((n) => n && n.length <= 60),
+      chatOpen: () => Boolean(document.querySelector("[class*='chat-message__container'], [class*='chat-container']")),
+      chat: () =>
+        [...document.querySelectorAll("[class*='chat-message__container']")].map((el) => {
+          const from = clean(textOf(el.querySelector("[class*='chat-item__sender'], [class*='sender']"))) || "Participant";
+          const text = clean(textOf(el.querySelector("[class*='text-content'], [class*='chat-message__text']")) || textOf(el));
+          return { from, text, key: `${from}|${text}` };
+        }).filter((m) => m.text),
+    },
+
+    "Microsoft Teams": {
+      inCall: () => Boolean(document.querySelector("#hangup-button, [data-tid='hangup-main-btn'], button[aria-label*='Leave' i]")),
+      title: () => clean(document.title.replace(/\s*\|\s*Microsoft Teams.*$/i, "").replace(/^\(\d+\)\s*/, "")) || "Teams meeting",
+      captionsOn: () => Boolean(document.querySelector("[data-tid='closed-caption-text']")),
+      enableCaptions: () => false,
+      captions: () =>
+        [...document.querySelectorAll("[data-tid='closed-caption-text']")].map((textEl) => {
+          const item = textEl.closest("[data-tid='closed-caption-message'], .fui-ChatMessageCompact, [role='listitem']") ?? textEl.parentElement;
+          return { node: item, speaker: clean(textOf(item?.querySelector("[data-tid='author']"))) || "Speaker", text: clean(textOf(textEl)) };
+        }).filter((e) => e.text),
+      people: () =>
+        [...document.querySelectorAll("[data-tid*='roster'] [role='treeitem'][aria-label], [data-tid*='participant'] [title]")]
+          .map((el) => clean(el.getAttribute("aria-label") || el.getAttribute("title")).split(",")[0])
+          .filter((n) => n && n.length <= 60),
+      chatOpen: () => Boolean(document.querySelector("[data-tid='chat-pane-message']")),
+      chat: () =>
+        [...document.querySelectorAll("[data-tid='chat-pane-message']")].map((el) => {
+          const from = clean(textOf(el.querySelector("[data-tid='message-author-name']"))) || "Participant";
+          const text = clean(textOf(el.querySelector("[id^='content-'], [data-tid='chat-pane-message-content']")) || textOf(el));
+          return { from, text, key: `${from}|${text}` };
+        }).filter((m) => m.text),
+    },
+  };
+
+  const adapter = adapters[platform];
+
+  // ---- Sending ----
+
+  let stopped = false;
+  function send(event) {
+    if (stopped) return;
+    try {
+      chrome.runtime.sendMessage({ type: "thread:event", event: { ...event, platform, at: Date.now() } }).catch(() => {});
+    } catch {
+      stop(); // the extension was reloaded; this copy of the script is orphaned
+    }
+  }
+
+  function hash(s) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(36);
+  }
+
+  // ---- Captions: stream each entry as it grows, commit it once the speaker pauses ----
+
+  const tracked = new Map(); // caption entry node -> progress
+  const committed = []; // recent final lines, so a re-rendered caption list isn't sent twice
+  let keySeq = 0;
+  const newKey = () => `${Date.now().toString(36)}${(keySeq++).toString(36)}`;
+
+  function lastSentenceEnd(s, min, max) {
+    for (let i = Math.min(max, s.length - 1); i >= min; i--) {
+      if (".?!".includes(s[i]) && (i + 1 === s.length || s[i + 1] === " ")) return i + 1;
+    }
+    return 0;
+  }
+
+  function commit(t, text) {
+    send({ type: "caption", key: t.key, speaker: t.speaker, text, final: true });
+    committed.push({ speaker: t.speaker, text });
+    if (committed.length > 30) committed.shift();
+  }
+
+  function alreadyCommitted(speaker, text) {
+    let base = 0;
+    for (const c of committed) {
+      if (c.speaker !== speaker) continue;
+      if (c.text.includes(text)) return text.length;
+      if (text.startsWith(c.text)) base = Math.max(base, c.text.length);
+    }
+    return base;
+  }
+
+  function scanCaptions() {
+    const now = Date.now();
+    const seen = new Set();
+    for (const entry of adapter.captions()) {
+      seen.add(entry.node);
+      let t = tracked.get(entry.node);
+      if (!t) {
+        t = { key: newKey(), speaker: entry.speaker, base: alreadyCommitted(entry.speaker, entry.text), full: "", sent: "", changedAt: now };
+        tracked.set(entry.node, t);
+      }
+      t.full = entry.text;
+      const raw = entry.text.slice(t.base);
+      const lead = raw.length - raw.trimStart().length;
+      let segment = raw.trim();
+      if (!segment || segment === t.sent) continue;
+      t.speaker = entry.speaker || t.speaker;
+      // Long monologues are cut at a sentence end so moments don't wait for the speaker to pause.
+      if (segment.length > 280) {
+        const cut = lastSentenceEnd(segment, 120, segment.length - 20);
+        if (cut) {
+          commit(t, segment.slice(0, cut).trim());
+          t.base += lead + cut;
+          t.key = newKey();
+          segment = segment.slice(cut).trim();
+        }
+      }
+      t.sent = segment;
+      t.changedAt = now;
+      send({ type: "caption", key: t.key, speaker: t.speaker, text: segment, final: false });
+    }
+    for (const [node, t] of tracked) {
+      const gone = !seen.has(node);
+      if (t.sent && (gone || now - t.changedAt > 1800)) {
+        commit(t, t.sent);
+        t.base = t.full.length;
+        t.sent = "";
+        t.key = newKey();
+      }
+      if (gone) tracked.delete(node);
+    }
+  }
+
+  // ---- Chat and people ----
+
+  const seenChat = new Set();
+  function scanChat() {
+    for (const m of adapter.chat()) {
+      if (seenChat.has(m.key)) continue;
+      seenChat.add(m.key);
+      send({ type: "chat", msgId: hash(m.key), from: m.from, text: m.text });
+    }
+  }
+
+  let lastPeople = "";
+  function scanPeople() {
+    const names = adapter.people().sort();
+    const joined = names.join("|");
+    if (joined === lastPeople) return;
+    lastPeople = joined;
+    send({ type: "people", names });
+  }
+
+  // ---- QR codes on shared screens and camera tiles ----
+
+  const qrCanvas = document.createElement("canvas");
+  const qrCtx = qrCanvas.getContext("2d", { willReadFrequently: true });
+  const seenQr = new Set();
+
+  function videoLabel(video) {
+    const tile = video.closest("[data-participant-id]");
+    const name = tile ? textOf(tile.querySelector(".notranslate")) || linesOf(tile)[0] : "";
+    return name ? `${clean(name)}'s screen` : "Shared screen";
+  }
+
+  function scanQr() {
+    if (typeof jsQR !== "function") return;
+    const videos = [...document.querySelectorAll("video")]
+      .filter((v) => v.videoWidth > 0 && v.readyState >= 2)
+      .map((v) => ({ v, area: v.getBoundingClientRect().width * v.getBoundingClientRect().height }))
+      .filter((x) => x.area > 0)
+      .sort((a, b) => b.area - a.area)
+      .slice(0, 3);
+    for (const { v } of videos) {
+      const scale = Math.min(1, 1280 / v.videoWidth);
+      const w = Math.round(v.videoWidth * scale);
+      const h = Math.round(v.videoHeight * scale);
+      qrCanvas.width = w;
+      qrCanvas.height = h;
       try {
-        canvas.width = 320;
-        canvas.height = 180;
-        ctx.drawImage(largestVideo, 0, 0, canvas.width, canvas.height);
-        // Note: Full QR decoding can be performed here or in the background worker
-      } catch (err) {
-        // Cross-origin video element protection if any
+        qrCtx.drawImage(v, 0, 0, w, h);
+        const code = jsQR(qrCtx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "attemptBoth" });
+        const data = code?.data?.trim();
+        if (data && !seenQr.has(data)) {
+          seenQr.add(data);
+          send({ type: "qr", data, source: videoLabel(v) });
+        }
+      } catch {
+        // a protected or cross-origin frame can't be read
       }
-    }, 4000);
+    }
   }
 
-  // Start observers after initial load
-  window.addEventListener("load", () => {
-    initCaptionObserver();
-    initChatObserver();
-    initSlideWatcher();
+  // ---- Lifecycle ----
+
+  let inCall = false;
+  let outSince = 0;
+  let captionTries = 0;
+  let lastTitle = "";
+  let lastStatus = "";
+  let ticks = 0;
+
+  function tick() {
+    ticks++;
+    const present = adapter.inCall();
+    if (present) outSince = 0;
+    if (present && !inCall) {
+      inCall = true;
+      lastTitle = adapter.title();
+      send({ type: "meeting", state: "started", title: lastTitle, url: location.origin + location.pathname });
+    } else if (!present && inCall) {
+      // Layout changes can hide the call controls for a moment, so only a sustained absence ends the meeting.
+      outSince ||= Date.now();
+      if (Date.now() - outSince < 4000) return;
+      scanCaptions();
+      for (const t of tracked.values()) if (t.sent) commit(t, t.sent);
+      tracked.clear();
+      inCall = false;
+      send({ type: "meeting", state: "ended" });
+      return;
+    }
+    if (!inCall) return;
+
+    const title = adapter.title();
+    if (title && title !== lastTitle) {
+      lastTitle = title;
+      send({ type: "meeting", state: "updated", title });
+    }
+    const captionsOn = adapter.captionsOn();
+    if (captionsOn) captionTries = 99; // seen on once, so never fight the user if they turn it off
+    else if (captionTries < 4 && ticks % 3 === 0) {
+      captionTries++;
+      adapter.enableCaptions();
+    }
+    const status = JSON.stringify({ captions: captionsOn, chat: adapter.chatOpen() });
+    if (status !== lastStatus) {
+      lastStatus = status;
+      send({ type: "status", ...JSON.parse(status) });
+    }
+    scanCaptions();
+    scanChat();
+    if (ticks % 3 === 0) scanPeople();
+    if (ticks % 3 === 1) scanQr();
+  }
+
+  let scheduled = false;
+  const observer = new MutationObserver(() => {
+    if (!inCall || scheduled) return;
+    scheduled = true;
+    setTimeout(() => {
+      scheduled = false;
+      if (!inCall || stopped) return;
+      scanCaptions();
+      scanChat();
+    }, 250);
   });
 
-  // Also run immediately if page is already loaded
-  if (document.readyState === "complete" || document.readyState === "interactive") {
-    initCaptionObserver();
-    initChatObserver();
-    initSlideWatcher();
+  const timer = setInterval(tick, 1000);
+  observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+
+  function stop() {
+    stopped = true;
+    clearInterval(timer);
+    observer.disconnect();
   }
 })();

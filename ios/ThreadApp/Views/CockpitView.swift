@@ -150,13 +150,42 @@ public struct CockpitView: View {
         .sheet(item: $selectedMomentForAgent) { moment in
             AgentMomentInspectorSheet(moment: moment)
         }
+        .sheet(item: $manager.editingEmailAction) { emailAction in
+            EmailComposerSheet(action: emailAction)
+                .environmentObject(manager)
+        }
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("-Thread_openVmScreen") {
                 showingVmScreenSheet = true
             }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_openEmailComposer") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    if let action = manager.actions.first(where: { $0.id == "a2" }) ?? manager.actions.first {
+                        manager.editingEmailAction = action
+                    } else {
+                        manager.editingEmailAction = DemoAction(
+                            id: "a2",
+                            label: "Send follow-up to Sarah Chen",
+                            status: "staged",
+                            timeSec: 126,
+                            detail: "Nova Dynamics Discovery Day follow-up with portfolio & SWE application confirmation",
+                            link: "mailto:shumonmondale@gmail.com",
+                            kind: "email",
+                            emailTo: "shumonmondale@gmail.com",
+                            emailSubject: "Nova Dynamics Discovery Day — Follow-up & Portfolio",
+                            emailBody: "Hi Sarah,\n\nThank you for hosting the Nova Dynamics Discovery Day session today! I loved hearing about the platform, infrastructure, and applied AI internship roles. I've submitted my application through the portal and attached my GitHub portfolio for reference.\n\nLooking forward to staying in touch,\nSumon Mondal"
+                        )
+                    }
+                }
+            }
             if ProcessInfo.processInfo.arguments.contains("-Thread_startDemo") {
                 manager.isDemoMode = true
                 manager.startDemoMeeting()
+            }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_seekEmailAction") {
+                manager.isDemoMode = true
+                manager.startDemoMeeting()
+                manager.elapsed = 130
             }
             if ProcessInfo.processInfo.arguments.contains("-Thread_showReaction") {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -1289,20 +1318,88 @@ public struct CockpitView: View {
                                     Spacer()
                                 }
 
-                                if action.status == "staged" {
+                                let isEmail = action.link?.hasPrefix("mailto:") == true || action.emailTo != nil || action.id == "a2" || action.id == "a5" || action.label.lowercased().contains("email")
+
+                                if isEmail && action.status == "staged" {
                                     Button(action: {
-                                        manager.approveAction(id: action.id)
+                                        manager.editingEmailAction = action
                                     }) {
-                                        HStack {
-                                            Image(systemName: "bolt.fill")
-                                            Text("Execute Action")
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            HStack {
+                                                Image(systemName: "envelope.badge.fill")
+                                                    .foregroundColor(.cyan)
+                                                    .font(.system(size: 10))
+                                                Text("EMAIL DRAFT · TAP TO EDIT")
+                                                    .font(.system(size: 9.5, weight: .bold))
+                                                    .foregroundColor(.cyan)
+                                                Spacer()
+                                                HStack(spacing: 2) {
+                                                    Image(systemName: "pencil")
+                                                    Text("Edit")
+                                                }
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundColor(.cyan)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.cyan.opacity(0.15))
+                                                .cornerRadius(4)
+                                            }
+
+                                            let to = action.emailTo ?? "shumonmondale@gmail.com"
+                                            let subject = action.emailSubject ?? "Nova Dynamics Discovery Day — Follow-up & Portfolio"
+                                            let body = action.emailBody ?? "Hi Sarah,\n\nThank you for hosting Discovery Day today..."
+
+                                            Text("To: \(to) · Subject: \(subject)")
+                                                .font(.system(size: 11, weight: .medium))
+                                                .foregroundColor(.white.opacity(0.85))
+                                                .lineLimit(1)
+                                            Text("“\(body.replacingOccurrences(of: "\n", with: " "))”")
+                                                .font(.system(size: 10.5))
+                                                .foregroundColor(.secondary)
+                                                .lineLimit(2)
                                         }
-                                        .font(.system(size: 12, weight: .bold))
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 9)
-                                        .background(Color.blue)
-                                        .foregroundColor(.white)
+                                        .padding(8)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(Color.white.opacity(0.04))
                                         .cornerRadius(8)
+                                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.cyan.opacity(0.2), lineWidth: 0.8))
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+
+                                if action.status == "staged" {
+                                    HStack(spacing: 8) {
+                                        if isEmail {
+                                            Button(action: {
+                                                manager.editingEmailAction = action
+                                            }) {
+                                                HStack(spacing: 4) {
+                                                    Image(systemName: "pencil")
+                                                    Text("Review / Edit")
+                                                }
+                                                .font(.system(size: 11, weight: .bold))
+                                                .padding(.horizontal, 10)
+                                                .padding(.vertical, 9)
+                                                .background(Color.white.opacity(0.08))
+                                                .foregroundColor(.white)
+                                                .cornerRadius(8)
+                                            }
+                                        }
+
+                                        Button(action: {
+                                            manager.approveAction(id: action.id)
+                                        }) {
+                                            HStack {
+                                                Image(systemName: isEmail ? "paperplane.fill" : "bolt.fill")
+                                                Text(isEmail ? "Send follow-up email" : "Execute Action")
+                                            }
+                                            .font(.system(size: 12, weight: .bold))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 9)
+                                            .background(isEmail ? Color.teal : Color.blue)
+                                            .foregroundColor(.white)
+                                            .cornerRadius(8)
+                                        }
                                     }
                                 }
                             }
@@ -1316,6 +1413,7 @@ public struct CockpitView: View {
     /// Minimal home: one line per action with a small Approve pill instead of a full-width button.
     private func compactActionRow(_ action: DemoAction) -> some View {
         let staged = action.status == "staged"
+        let isEmail = action.link?.hasPrefix("mailto:") == true || action.emailTo != nil || action.id == "a2" || action.id == "a5" || action.label.lowercased().contains("email")
         return HStack(spacing: 10) {
             Image(systemName: staged ? "circle.dashed" : "checkmark.circle.fill")
                 .font(.system(size: 15))
@@ -1337,13 +1435,24 @@ public struct CockpitView: View {
             Spacer(minLength: 8)
 
             if staged {
+                if isEmail {
+                    Button(action: { manager.editingEmailAction = action }) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(ThreadTheme.cyan)
+                            .frame(width: 30, height: 30)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                    }
+                }
+
                 Button(action: { manager.approveAction(id: action.id) }) {
-                    Text("Execute")
+                    Text(isEmail ? "Send" : "Execute")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(ThreadTheme.background)
                         .padding(.horizontal, 12)
                         .frame(height: 30)
-                        .background(ThreadTheme.cyan)
+                        .background(isEmail ? Color.teal : ThreadTheme.cyan)
                         .clipShape(Capsule())
                 }
                 .accessibilityLabel("Approve \(action.label)")

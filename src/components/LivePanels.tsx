@@ -142,7 +142,7 @@ export function MomentsPanel() {
 }
 
 export function TranscriptPanel() {
-  const { transcript, liveLines, mode } = useDemo();
+  const { transcript, liveLines, mode, liveMeeting } = useDemo();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -151,19 +151,27 @@ export function TranscriptPanel() {
 
   const lines =
     mode === "live"
-      ? liveLines.map((l) => ({ id: l.id, speaker: "You", role: "Attendee", text: l.text, live: !l.committed }))
+      ? liveLines.map((l) => ({
+          id: l.id,
+          speaker: l.speaker ?? "You",
+          role: l.speaker && l.speaker !== "You" ? "Participant" : "Attendee",
+          text: l.text,
+          live: !l.committed,
+        }))
       : transcript.map((l) => ({ id: l.id, speaker: l.speaker, role: l.role, text: l.text, live: false }));
 
   return (
     <section className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-white/5 p-4">
         <h2 className="text-sm font-semibold text-foreground/85">Live Transcript</h2>
-        <span className="meta-chip text-muted-foreground">Scribe · ~300ms</span>
+        <span className="meta-chip text-muted-foreground">{liveMeeting ? `${liveMeeting.platform} captions` : "Scribe · ~300ms"}</span>
       </div>
       <div ref={scrollRef} className="thin-scroll soft-mask-b min-h-0 flex-1 space-y-3 overflow-y-auto p-4 pb-8">
         {lines.length === 0 && (
           <p className="pt-6 text-center text-xs text-muted-foreground">
-            {mode === "live" ? "Speak into your mic — transcription appears here." : "Connecting to the meeting…"}
+            {liveMeeting
+              ? `Waiting for captions — turn on CC in ${liveMeeting.platform}.`
+              : mode === "live" ? "Speak into your mic — transcription appears here." : "Connecting to the meeting…"}
           </p>
         )}
         {lines.map((l) => (
@@ -216,7 +224,22 @@ function SlideQr({ url }: { url: string }) {
 }
 
 function ScreenShare() {
-  const { screenShared, elapsed, scenario } = useDemo();
+  const { screenShared, elapsed, scenario, liveMeeting, moments } = useDemo();
+  if (liveMeeting) {
+    const decoded = moments.filter((m) => m.link && m.id.startsWith("qr-"));
+    return (
+      <div className="panel flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center">
+        <p className="meta-chip text-muted-foreground">
+          {decoded.length ? `QR codes decoded from ${liveMeeting.platform}` : `Watching the ${liveMeeting.platform} screen for QR codes…`}
+        </p>
+        {decoded.map((m) => (
+          <a key={m.id} href={m.link} target="_blank" rel="noreferrer" className="max-w-full truncate rounded-md bg-teal-500/10 px-2 py-1 font-mono text-[11px] text-teal-300 ring-1 ring-teal-500/25">
+            🔗 {m.link}
+          </a>
+        ))}
+      </div>
+    );
+  }
   const presenter = scenario.screenSharePresenter;
   const firstName = presenter.split(" ")[0];
   if (!screenShared) {
@@ -298,15 +321,21 @@ export function AgentQueuePanel() {
   const { actions, approveAction } = useDemo();
   const staged = actions.filter((a) => a.status === "staged");
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftTo, setDraftTo] = useState(SARAH_DEMO_RECIPIENT);
+  const [draftSubject, setDraftSubject] = useState(SARAH_FOLLOW_UP_EMAIL.subject);
+  const [draftBody, setDraftBody] = useState(SARAH_FOLLOW_UP_EMAIL.body);
 
-  async function approve(a: (typeof actions)[number]) {
+  async function approve(a: (typeof actions)[number], custom?: { to: string; subject: string; body: string }) {
     if (sendingId) return;
-    if (isSarahFollowUp(a)) {
+    if (isSarahFollowUp(a) || a.link?.startsWith("mailto:")) {
       setSendingId(a.id);
-      const result = await approveAction(a.id);
+      const payload = custom ?? (editingId === a.id ? { to: draftTo, subject: draftSubject, body: draftBody } : { to: SARAH_DEMO_RECIPIENT, ...SARAH_FOLLOW_UP_EMAIL });
+      const result = await approveAction(a.id, payload);
       setSendingId(null);
       if (result.ok) {
-        toast.success(result.delivered === "inbox" ? `Sent and confirmed in ${SARAH_DEMO_RECIPIENT}` : `Sent to ${SARAH_DEMO_RECIPIENT}`);
+        toast.success(result.delivered === "inbox" ? `Sent and confirmed in ${payload.to}` : `Sent to ${payload.to}`);
+        setEditingId(null);
       } else {
         toast.error(result.error ?? "Email could not be sent");
       }
@@ -328,37 +357,144 @@ export function AgentQueuePanel() {
         {actions.length === 0 && (
           <p className="pt-4 text-xs text-muted-foreground">Thread's agent will stage actions here as moments are detected.</p>
         )}
-        {actions.map((a) => (
-          <div key={a.id} className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.04] p-3">
-            <span
-              className={cn(
-                "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]",
-                a.status === "executed" ? "bg-emerald-500/25 text-emerald-400" : "border border-amber-400/50 text-amber-400",
-              )}
-            >
-              {a.status === "executed" ? "✓" : "!"}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium leading-snug">{a.label}</p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{a.detail}</p>
-              {isSarahFollowUp(a) && a.status === "staged" && (
-                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">To: {SARAH_DEMO_RECIPIENT} · Subject: {SARAH_FOLLOW_UP_EMAIL.subject}<br />“{SARAH_FOLLOW_UP_EMAIL.body.replace(/\n+/g, " ")}”</p>
-              )}
-              {a.status === "staged" && (
-                <Button
-                  disabled={sendingId === a.id}
-                  onClick={() => void approve(a)}
-                  className="mt-2 rounded-lg bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground transition hover:bg-primary/85"
-                >
-                  {sendingId === a.id ? "Sending…" : isSarahFollowUp(a) ? "Send follow-up email" : "Execute Action"}
-                </Button>
-              )}
-              {a.status === "executed" && a.link && (
-                <a href={a.link} target="_blank" rel="noreferrer" className="mt-1.5 inline-block text-[11px] text-primary underline">Open link</a>
-              )}
+        {actions.map((a) => {
+          const isEmailAction = isSarahFollowUp(a) || a.link?.startsWith("mailto:");
+          const isEditingThis = editingId === a.id;
+
+          return (
+            <div key={a.id} className="flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.04] p-3">
+              <span
+                className={cn(
+                  "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px]",
+                  a.status === "executed" ? "bg-emerald-500/25 text-emerald-400" : "border border-amber-400/50 text-amber-400",
+                )}
+              >
+                {a.status === "executed" ? "✓" : "!"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium leading-snug">{a.label}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{a.detail}</p>
+
+                {isEmailAction && a.status === "staged" && (
+                  isEditingThis ? (
+                    <div className="mt-3 space-y-2 rounded-lg border border-primary/30 bg-black/40 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="meta-chip text-primary">✎ Edit Email Draft</span>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="text-[10px] text-muted-foreground hover:text-foreground"
+                        >
+                          Cancel ✕
+                        </button>
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">To</label>
+                        <input
+                          type="email"
+                          value={draftTo}
+                          onChange={(e) => setDraftTo(e.target.value)}
+                          className="mt-0.5 w-full rounded border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] text-foreground outline-none focus:border-primary/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">Subject</label>
+                        <input
+                          type="text"
+                          value={draftSubject}
+                          onChange={(e) => setDraftSubject(e.target.value)}
+                          className="mt-0.5 w-full rounded border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-foreground outline-none focus:border-primary/50"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-muted-foreground">Body</label>
+                        <textarea
+                          rows={4}
+                          value={draftBody}
+                          onChange={(e) => setDraftBody(e.target.value)}
+                          className="mt-0.5 w-full resize-none rounded border border-white/10 bg-white/5 p-2 text-[11px] leading-relaxed text-foreground outline-none focus:border-primary/50"
+                        />
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingId(null)}
+                          className="h-7 text-[11px]"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          disabled={sendingId === a.id}
+                          onClick={() => void approve(a, { to: draftTo, subject: draftSubject, body: draftBody })}
+                          className="h-7 rounded-lg bg-primary px-3 text-[11px] font-semibold text-primary-foreground"
+                        >
+                          {sendingId === a.id ? "Sending…" : "Send Email Now"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => {
+                        setEditingId(a.id);
+                        setDraftTo(SARAH_DEMO_RECIPIENT);
+                        setDraftSubject(SARAH_FOLLOW_UP_EMAIL.subject);
+                        setDraftBody(SARAH_FOLLOW_UP_EMAIL.body);
+                      }}
+                      className="group mt-2 cursor-pointer rounded-lg border border-white/8 bg-white/[0.03] p-2.5 transition hover:border-primary/40 hover:bg-white/[0.05]"
+                      title="Click to review and edit email"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold tracking-wider text-primary uppercase">Draft Preview (Click to Edit)</span>
+                        <span className="flex items-center gap-1 text-[10px] font-semibold text-primary opacity-80 group-hover:opacity-100">
+                          ✎ Edit draft
+                        </span>
+                      </div>
+                      <p className="mt-1 text-[11px] font-medium text-foreground/90">
+                        <span className="text-muted-foreground">To:</span> {draftTo}
+                      </p>
+                      <p className="text-[11px] font-medium text-foreground/90">
+                        <span className="text-muted-foreground">Subject:</span> {draftSubject}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[10.5px] italic text-muted-foreground">
+                        “{draftBody.replace(/\n+/g, " ")}”
+                      </p>
+                    </div>
+                  )
+                )}
+
+                {a.status === "staged" && !isEditingThis && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <Button
+                      disabled={sendingId === a.id}
+                      onClick={() => void approve(a)}
+                      className="rounded-lg bg-primary px-3 py-1 text-[11px] font-semibold text-primary-foreground transition hover:bg-primary/85"
+                    >
+                      {sendingId === a.id ? "Sending…" : isEmailAction ? "Send follow-up email" : "Execute Action"}
+                    </Button>
+                    {isEmailAction && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingId(a.id);
+                          setDraftTo(SARAH_DEMO_RECIPIENT);
+                          setDraftSubject(SARAH_FOLLOW_UP_EMAIL.subject);
+                          setDraftBody(SARAH_FOLLOW_UP_EMAIL.body);
+                        }}
+                        className="h-7 text-[11px]"
+                      >
+                        Edit draft ✎
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {a.status === "executed" && a.link && (
+                  <a href={a.link} target="_blank" rel="noreferrer" className="mt-1.5 inline-block text-[11px] text-primary underline">Open link</a>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="border-t border-white/5 px-4 py-3">
         <p className="meta-chip text-muted-foreground">Scoped delegation</p>
@@ -371,10 +507,15 @@ export function AgentQueuePanel() {
 }
 
 export function ChatPanel() {
-  const { chat, transcript, mode, elapsed, scenario, liveLines, addChatMessage } = useDemo();
-  const showQr = mode === "live" || elapsed >= scenario.screenShareStart + 4;
+  const { chat, transcript, mode, elapsed, scenario, liveLines, addChatMessage, liveMeeting, meetingTitle, meetingPlatform } = useDemo();
+  // The scripted QR card belongs to the demo meetings, never to a real call.
+  const showQr = !liveMeeting && (mode === "live" || elapsed >= scenario.screenShareStart + 4);
   const qrUrl = scenario.id === "diatom" ? "https://nanomat.as.wm.edu/owncloud/s/fK5FbeKFAbzeKaQ" : (typeof window !== "undefined" ? window.location.origin : "") + "/apply/internship-app";
-  const liveContext = `${scenario.meetingTitle} (${scenario.platform})\n` + [...transcript.map((l) => `${l.speaker}: ${l.text}`), ...liveLines.map((l) => `You (live mic): ${l.text}`)].join("\n") + (showQr ? `\nQR code in chat decoded to: ${qrUrl}` : "");
+  const liveContext = liveMeeting
+    ? `${meetingTitle} (${meetingPlatform})\nParticipants: ${liveMeeting.participants.join(", ") || "unknown"}\n` +
+      transcript.map((l) => `${l.speaker}: ${l.text}`).join("\n") +
+      (chat.length ? `\nMeeting chat:\n${chat.map((c) => `${c.from}: ${c.text}`).join("\n")}` : "")
+    : `${scenario.meetingTitle} (${scenario.platform})\n` + [...transcript.map((l) => `${l.speaker}: ${l.text}`), ...liveLines.map((l) => `You (live mic): ${l.text}`)].join("\n") + (showQr ? `\nQR code in chat decoded to: ${qrUrl}` : "");
 
   return (
     <section className="panel flex min-h-0 flex-1 flex-col overflow-hidden">

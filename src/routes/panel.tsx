@@ -23,9 +23,11 @@ const TABS = ["Moments", "Transcript", "Queue", "Agent"] as const;
 type Tab = (typeof TABS)[number];
 
 function SidePanel() {
-  const { elapsed, playing, play, pause, reset, nextMoment, mode, setMode, actions, moments, scenario } = useDemo();
+  const { elapsed, playing, play, pause, reset, nextMoment, mode, setMode, actions, moments, meetingTitle, meetingPlatform, liveMeeting } = useDemo();
   const [tab, setTab] = useState<Tab>("Moments");
   const staged = actions.filter((a) => a.status === "staged").length;
+  const badge = mode === "live" ? (liveMeeting ? (liveMeeting.endedAt ? "ENDED" : "LIVE") : "MIC") : playing ? "LIVE" : "READY";
+  const people = liveMeeting ? ` · ${liveMeeting.participants.length} ${liveMeeting.participants.length === 1 ? "person" : "people"}` : "";
   const btn = "flex size-8 items-center justify-center rounded-lg bg-white/5 text-foreground/80 hover:bg-white/10";
 
   return (
@@ -33,10 +35,10 @@ function SidePanel() {
       <header className="panel flex items-center gap-2 px-3 py-2">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold">Thread</p>
-          <p className="truncate text-[10px] text-muted-foreground">{scenario.meetingTitle} · {scenario.platform}</p>
+          <p className="truncate text-[10px] text-muted-foreground">{meetingTitle} · {meetingPlatform}{people}</p>
         </div>
         <span className="rounded-full bg-red-500/15 px-2 py-0.5 font-mono text-[10px] text-red-300">
-          {mode === "live" ? "MIC" : playing ? "LIVE" : "READY"} {formatTime(elapsed)}
+          {badge} {formatTime(elapsed)}
         </span>
         {mode === "demo" && (
           <>
@@ -47,13 +49,15 @@ function SidePanel() {
             <button aria-label="Reset" onClick={reset} className={btn}><RotateCcw className="size-4" /></button>
           </>
         )}
-        <button
-          aria-label="Live mic"
-          onClick={() => setMode(mode === "demo" ? "live" : "demo")}
-          className={cn(btn, mode === "live" && "bg-red-500/25 text-red-300")}
-        >
-          <Mic className="size-4" />
-        </button>
+        {!liveMeeting && (
+          <button
+            aria-label="Live mic"
+            onClick={() => setMode(mode === "demo" ? "live" : "demo")}
+            className={cn(btn, mode === "live" && "bg-red-500/25 text-red-300")}
+          >
+            <Mic className="size-4" />
+          </button>
+        )}
       </header>
       <nav className="panel grid grid-cols-4 gap-1 p-1">
         {TABS.map((t) => (

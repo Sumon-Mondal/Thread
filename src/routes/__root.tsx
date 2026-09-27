@@ -23,6 +23,7 @@ import { TopNav } from "../components/TopNav";
 // iOS-style Dynamic Island is kept for the future mobile app but hidden in the web UI.
 // import { DynamicIsland } from "../components/DynamicIsland";
 import { LiveStatePublisher } from "../components/watch/LiveStatePublisher";
+import { ExtensionBridge } from "../components/ExtensionBridge";
 import { Toaster } from "sonner";
 import { DemoTour } from "../components/DemoTour";
 import { Notifier } from "../components/Notifier";
@@ -150,6 +151,7 @@ function RootComponent() {
           <ChromeGate><ZoomCallIntro /></ChromeGate>
           <Notifier />
           <LiveStatePublisher />
+          <ExtensionBridge />
           <ClientOnly>
             <Suspense fallback={null}>
               <LiveMicBridge />

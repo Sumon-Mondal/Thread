@@ -14,17 +14,38 @@ public struct LiveSessionRow: View {
 
     public var body: some View {
         HStack(spacing: 8) {
-            Button(action: onOpen) {
+            Button(action: {
+                if manager.isDrivingMode {
+                    manager.sendReactionInMeeting("👍")
+                } else {
+                    onOpen()
+                }
+            }) {
                 HStack(spacing: 10) {
                     Circle()
                         .fill(manager.isVmBotRunning ? ThreadTheme.success : ThreadTheme.cyan)
                         .frame(width: 6, height: 6)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(title)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(ThreadTheme.textPrimary)
-                            .lineLimit(1)
+                        HStack(spacing: 6) {
+                            Text(title)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(ThreadTheme.textPrimary)
+                                .lineLimit(1)
+                            if manager.isDrivingMode {
+                                HStack(spacing: 2) {
+                                    Text("👍")
+                                        .font(.system(size: 10))
+                                    Text("Tap to React")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundColor(.yellow)
+                                }
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1.5)
+                                .background(Color.yellow.opacity(0.18))
+                                .cornerRadius(4)
+                            }
+                        }
                         Text(subtitle)
                             .font(.system(size: 11))
                             .foregroundColor(ThreadTheme.textMuted)
@@ -61,17 +82,40 @@ public struct LiveSessionRow: View {
                 .buttonStyle(.plain)
             }
 
-            Button(action: onOpen) {
-                HStack(spacing: 3) {
-                    Text("Controls")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(ThreadTheme.textSecondary)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(ThreadTheme.textMuted)
+            if manager.isDrivingMode {
+                Button(action: {
+                    manager.sendReactionInMeeting("👍")
+                }) {
+                    HStack(spacing: 4) {
+                        Text("👍")
+                            .font(.system(size: 12))
+                        Text("React")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color.blue.opacity(0.25))
+                    .foregroundColor(.white)
+                    .cornerRadius(7)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 7)
+                            .stroke(Color.blue.opacity(0.6), lineWidth: 1)
+                    )
                 }
+                .buttonStyle(.plain)
+            } else {
+                Button(action: onOpen) {
+                    HStack(spacing: 3) {
+                        Text("Controls")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(ThreadTheme.textSecondary)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(ThreadTheme.textMuted)
+                    }
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)

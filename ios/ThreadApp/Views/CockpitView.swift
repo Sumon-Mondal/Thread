@@ -80,6 +80,41 @@ public struct CockpitView: View {
                     }
                 }
             }
+
+            if manager.showFloatingReaction {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 10) {
+                        Text("👍")
+                            .font(.system(size: 32))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Sent Thumbs Up")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Reaction broadcasted live to Google Meet / Zoom")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(red: 0.08, green: 0.14, blue: 0.24).opacity(0.96))
+                            .background(.ultraThinMaterial)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.cyan.opacity(0.6), lineWidth: 1.5)
+                    )
+                    .shadow(color: Color.cyan.opacity(0.35), radius: 14, y: 6)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 60)
+                    .transition(.scale.combined(with: .opacity))
+                }
+                .zIndex(100)
+            }
         }
         .onAppear {
             if manager.isMeetingActive {
@@ -118,6 +153,18 @@ public struct CockpitView: View {
         .onAppear {
             if ProcessInfo.processInfo.arguments.contains("-Thread_openVmScreen") {
                 showingVmScreenSheet = true
+            }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_startDemo") {
+                manager.isDemoMode = true
+                manager.startDemoMeeting()
+            }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_showReaction") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    manager.sendReactionInMeeting("👍")
+                }
+            }
+            if ProcessInfo.processInfo.arguments.contains("-Thread_openSettings") {
+                showingSettingsSheet = true
             }
         }
     }
@@ -211,6 +258,7 @@ public struct CockpitView: View {
             Text(text)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(.white)
+                .lineLimit(1)
             Spacer()
         }
         .padding(.horizontal, 14)
@@ -222,7 +270,8 @@ public struct CockpitView: View {
         )
         .padding(.horizontal, 16)
         .padding(.top, 4)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.opacity)
+        .id(text)
     }
 
     // MARK: - Demo Presenter Strip
@@ -333,6 +382,25 @@ public struct CockpitView: View {
                             .foregroundColor(.yellow.opacity(0.9))
                     }
                     Spacer()
+
+                    // Quick 👍 React Shortcut in driving banner
+                    Button(action: {
+                        manager.sendReactionInMeeting("👍")
+                    }) {
+                        HStack(spacing: 3) {
+                            Text("👍")
+                                .font(.system(size: 11))
+                            Text("Like")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3.5)
+                        .background(Color.blue.opacity(0.35))
+                        .cornerRadius(5)
+                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Color.blue.opacity(0.6), lineWidth: 0.8))
+                    }
+
                     Button(action: {
                         manager.isDrivingMode = false
                     }) {
@@ -358,15 +426,39 @@ public struct CockpitView: View {
         Group {
             if manager.isDrivingMode {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("HANDS-FREE")
-                        .font(.system(size: 10, weight: .black))
-                        .foregroundColor(.yellow)
+                    HStack {
+                        Text("HANDS-FREE DRIVING CONTROLS")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(.yellow)
+                        Spacer()
+                        Text("Tap meeting row or button to react 👍")
+                            .font(.system(size: 9.5, weight: .medium))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
 
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        // 1-Tap Thumbs-Up Reaction in Meeting
+                        Button(action: {
+                            manager.sendReactionInMeeting("👍")
+                        }) {
+                            VStack(spacing: 6) {
+                                Text("👍")
+                                    .font(.system(size: 22))
+                                Text("React 👍")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.blue.opacity(0.25))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.blue.opacity(0.6), lineWidth: 1.2))
+                        }
+
                         // 1-Tap Read Meeting Summary Aloud
                         Button(action: {
-                            let summary = manager.latestMoment?.takeaway ?? "The meeting discussion is currently active."
-                            manager.speakAloud("Latest meeting update: \(summary)")
+                            let summary = manager.latestMoment?.takeaway ?? manager.liveSummary
+                            manager.speakAloud("Latest meeting update: \(summary)", force: true)
                             manager.showNotification(text: "🔊 \(summary)")
                         }) {
                             VStack(spacing: 6) {
@@ -388,7 +480,7 @@ public struct CockpitView: View {
                             if let first = manager.visibleActions.first(where: { $0.status == "staged" }) {
                                 manager.approveAction(id: first.id)
                             } else {
-                                manager.speakAloud("No pending actions right now.")
+                                manager.speakAloud("No pending actions right now.", force: true)
                                 manager.showNotification(text: "No pending actions")
                             }
                         }) {

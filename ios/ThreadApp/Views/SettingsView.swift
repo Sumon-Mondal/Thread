@@ -6,6 +6,7 @@ public struct SettingsView: View {
     @State private var showingResetAlert = false
     @State private var showingConsentAlert = false
     @State private var showingVmScreenSheet = false
+    @State private var elevenLabsKeyInput: String = ThreadSpeechAnnouncer.shared.elevenLabsApiKey
 
     public init() {}
 
@@ -16,45 +17,57 @@ public struct SettingsView: View {
                     .ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        // Header info
-                        headerSection
+                    ScrollViewReader { proxy in
+                        VStack(spacing: 20) {
+                            // Header info
+                            headerSection
 
-                        // 1. Master Mode Selection (Demo Mode Toggle)
-                        demoModeSection
+                            // 1. Master Mode Selection (Demo Mode Toggle)
+                            demoModeSection
 
-                        // If Demo Mode is enabled, show the Judge Pitch Control Suite
-                        if manager.isDemoMode {
-                            pitchControlSection
+                            // If Demo Mode is enabled, show the Judge Pitch Control Suite
+                            if manager.isDemoMode {
+                                pitchControlSection
+                            }
+
+                            // 2. Real-Life Meeting Connection
+                            liveConnectionSection
+
+                            // 3. VM Meeting Control Panel toggle + notification test
+                            meetingControlsSection
+
+                            // 4. Hands-Free Driving Copilot (Voice & Big Buttons)
+                            drivingModeSection
+                                .id("drivingModeSection")
+
+                            // 4. In-Room Audio & Privacy (Opt-in Consent Toggle)
+                            inRoomAudioConsentSection
+
+                            // 5. Connectors & Integrations
+                            integrationsNavigationSection
+
+                            // 4. AI & Agent Intelligence
+                            aiIntelligenceSection
+
+                            // 4. Dynamic Island & Live Activity
+                            dynamicIslandSection
+
+                            // 5. System Reset
+                            resetSection
                         }
-
-                        // 2. Real-Life Meeting Connection
-                        liveConnectionSection
-
-                        // 3. VM Meeting Control Panel toggle + notification test
-                        meetingControlsSection
-
-                        // 4. Hands-Free Driving Copilot (Voice & Big Buttons)
-                        drivingModeSection
-
-                        // 4. In-Room Audio & Privacy (Opt-in Consent Toggle)
-                        inRoomAudioConsentSection
-
-                        // 5. Connectors & Integrations
-                        integrationsNavigationSection
-
-                        // 4. AI & Agent Intelligence
-                        aiIntelligenceSection
-
-                        // 4. Dynamic Island & Live Activity
-                        dynamicIslandSection
-
-                        // 5. System Reset
-                        resetSection
+                        .onAppear {
+                            if ProcessInfo.processInfo.arguments.contains("-Thread_scrollToDriving") {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    withAnimation {
+                                        proxy.scrollTo("drivingModeSection", anchor: .top)
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .padding(.bottom, 60)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .padding(.bottom, 60)
                 }
             }
             .navigationTitle("Settings")
@@ -569,6 +582,85 @@ public struct SettingsView: View {
                     .background(Color.yellow.opacity(0.1))
                     .cornerRadius(6)
                 }
+
+                // 1-Tap Voice Test
+                Button(action: {
+                    let phrase = "Priya is talking about waste management. Caroline is sharing her work experience in MLH."
+                    ThreadSpeechAnnouncer.shared.speak(phrase)
+                    manager.showNotification(text: "🔊 Testing voice: \(phrase)")
+                    let gen = UIImpactFeedbackGenerator(style: .rigid)
+                    gen.impactOccurred()
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "speaker.wave.3.fill")
+                            .foregroundColor(.yellow)
+                            .font(.system(size: 13))
+                        Text("Test Voice Announcement")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text("Tap to Speak")
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundColor(.yellow)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color.yellow.opacity(0.15))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.yellow.opacity(0.35), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                // ElevenLabs Neural Voice Configuration
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Image(systemName: "waveform")
+                            .foregroundColor(.cyan)
+                            .font(.system(size: 11))
+                        Text("ELEVENLABS NEURAL VOICE")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Text("Dual-Engine Active")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundColor(.green)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.15))
+                            .cornerRadius(4)
+                    }
+
+                    HStack(spacing: 8) {
+                        SecureField("ElevenLabs API Key (sk_...)", text: $elevenLabsKeyInput)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.white)
+                            .padding(8)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(6)
+                            .onChange(of: elevenLabsKeyInput) { newVal in
+                                ThreadSpeechAnnouncer.shared.elevenLabsApiKey = newVal
+                            }
+
+                        Button("Save") {
+                            ThreadSpeechAnnouncer.shared.elevenLabsApiKey = elevenLabsKeyInput
+                            manager.showNotification(text: "✓ ElevenLabs key saved")
+                        }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.cyan)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(Color.cyan.opacity(0.15))
+                        .cornerRadius(6)
+                    }
+
+                    Text("Automatic fallback: Uses ElevenLabs studio neural voice when secret key starts with sk_, and instant on-device Apple voice engine offline.")
+                        .font(.system(size: 9))
+                        .foregroundColor(.white.opacity(0.45))
+                }
+                .padding(.top, 4)
             }
             .padding(14)
             .background(

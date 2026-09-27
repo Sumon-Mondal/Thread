@@ -65,6 +65,8 @@ export const SPEAKERS = {
   sarah: { name: "Sarah Chen", role: "University Recruiting Lead", initials: "SC", color: "#3b82f6" },
   michael: { name: "Michael Torres", role: "Staff Engineer", initials: "MT", color: "#8b5cf6" },
   priya: { name: "Priya Nair", role: "Hiring Manager", initials: "PN", color: "#14b8a6" },
+  caroline: { name: "Caroline Zhang", role: "2026 Intern & MLH Fellow", initials: "CZ", color: "#f97316" },
+  steve: { name: "Steve Miller", role: "Engineering Lead", initials: "SM", color: "#6366f1" },
   you: { name: "You", role: "Attendee", initials: "YO", color: "#f59e0b" },
 } satisfies Record<string, Speaker>;
 
@@ -81,8 +83,10 @@ export const SCRIPT_TRANSCRIPT: TranscriptLine[] = [
   { id: "t10", speaker: "Priya Nair", role: SPEAKERS.priya.role, timeSec: 90, text: "We're also hosting an engineering Q&A panel next Thursday at 4 PM Eastern with interns from last summer. Highly recommend attending.", momentType: "EVENT" },
   { id: "t11", speaker: "Sarah Chen", role: SPEAKERS.sarah.role, timeSec: 102, text: "If you're driving or away from your desk right now — no worries, everything shared today is being captured for you." },
   { id: "t12", speaker: "Priya Nair", role: SPEAKERS.priya.role, timeSec: 112, text: "Final note from me: referral applications get priority review, so mention you attended Discovery Day.", momentType: "DECISION" },
-  { id: "t13", speaker: "Sarah Chen", role: SPEAKERS.sarah.role, timeSec: 122, text: "That's a wrap for the main session. Breakout rooms open in two minutes — thank you all for being here!" },
-  { id: "t14", speaker: "Michael Torres", role: SPEAKERS.michael.role, timeSec: 311, text: "Looking at campus facilities, we really need a better trash management and aluminum can recycling system before winter break. If anyone wants to join Jordan Lee by November 15, let us know at jordan.lee@helixsupply.com.", momentType: "OPPORTUNITY" },
+  { id: "t12b", speaker: "Caroline Zhang", role: SPEAKERS.caroline.role, timeSec: 135, text: "I did MLH Fellowship before Nova Dynamics, and that hands-on open source experience really helped me pass the technical interviews.", momentType: "OPPORTUNITY" },
+  { id: "t12c", speaker: "Steve Miller", role: SPEAKERS.steve.role, timeSec: 165, text: "For behavioral and architecture questions, always use the STAR method — Situation, Task, Action, and Result. It makes your impact crystal clear.", momentType: "REQUIREMENT" },
+  { id: "t13", speaker: "Sarah Chen", role: SPEAKERS.sarah.role, timeSec: 190, text: "That's a wrap for the main session. Breakout rooms open in two minutes — thank you all for being here!" },
+  { id: "t14", speaker: "Priya Nair", role: SPEAKERS.priya.role, timeSec: 215, text: "Looking at campus facilities, we really need a better waste management and recycling system before winter break. If anyone wants to join Jordan Lee by November 15, let us know at jordan.lee@helixsupply.com.", momentType: "OPPORTUNITY" },
 ];
 
 export const SCRIPT_MOMENTS: Moment[] = [
@@ -125,9 +129,19 @@ export const SCRIPT_MOMENTS: Moment[] = [
     detail: "Logged to meeting ledger. Thread added 'Request referral mention' to your action queue.",
   },
   {
-    id: "m7", type: "OPPORTUNITY", speaker: "Michael Torres", timeSec: 311, headline: "Trash & Waste",
-    takeaway: "We need a better trash management system.",
-    detail: "Michael highlighted campus facility sustainability targets: implementing smart IoT recycling bins and aluminum can disposal across campus by November 15. Contact eco-lead jordan.lee@helixsupply.com to join the committee.",
+    id: "m6b", type: "OPPORTUNITY", speaker: "Caroline Zhang", timeSec: 135, headline: "MLH Experience",
+    takeaway: "MLH Fellowship hands-on open source experience helps pass technical interviews.",
+    detail: "Caroline highlighted how fellowship projects in open source provide direct proof of shipping code.",
+  },
+  {
+    id: "m6c", type: "REQUIREMENT", speaker: "Steve Miller", timeSec: 165, headline: "STAR Method",
+    takeaway: "Use the STAR Method (Situation, Task, Action, Result) for behavioral questions.",
+    detail: "Steve recommended structuring technical answers around measurable results and personal ownership.",
+  },
+  {
+    id: "m7", type: "OPPORTUNITY", speaker: "Priya Nair", timeSec: 215, headline: "Waste Management",
+    takeaway: "Priya is talking about waste management and campus recycling.",
+    detail: "Priya highlighted campus facility sustainability targets: implementing smart IoT recycling bins and aluminum can disposal across campus by November 15. Contact eco-lead jordan.lee@helixsupply.com to join the committee.",
     link: "https://helixsupply.com/sustainability/smart-bins",
     matchedSkills: [
       { skill: "Sustainability", matched: true },

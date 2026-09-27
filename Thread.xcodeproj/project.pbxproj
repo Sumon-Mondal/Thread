@@ -20,6 +20,7 @@
 		A5F0660F438EABD2FD1C0EA6 /* SpeechRecognizerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B58E75FCC1E5417B0A1AC7D /* SpeechRecognizerManager.swift */; };
 		B87EBA58DF24D32D97192864 /* ThreadApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */; };
 		B9B0888BC79BF165748BF43B /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28EEC1BEAE9A9998C11D2B63 /* IntegrationsView.swift */; };
+		BBC69D41E9DE36053F43376C /* ThreadSpeechAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */; };
 		BD25AFA81EBE68B8D83F2409 /* ThreadLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848151C80874DF1E18D51DB4 /* ThreadLiveActivity.swift */; };
 		C06060AF3C4350E04CC42446 /* ThreadWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8901E208899C9CAC1FDDBC2A /* ThreadWidgetBundle.swift */; };
 		D5F57AD6AACB9AB097047B1F /* ThreadActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */; };
@@ -59,6 +60,7 @@
 		29BD60457FD6A6E7E30997EA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		326C7AD3F841B1236F905B38 /* VirtualMachineScreenSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualMachineScreenSheet.swift; sourceTree = "<group>"; };
 		3BC45120E7A05E18792A8E8C /* ThreadWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ThreadWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSpeechAnnouncer.swift; sourceTree = "<group>"; };
 		533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationManager.swift; sourceTree = "<group>"; };
 		5721688A10CD78595E1F8905 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadActivityAttributes.swift; sourceTree = "<group>"; };
@@ -83,6 +85,7 @@
 				7A7B707258DDEF8E46862DBE /* LiveState.swift */,
 				6B58E75FCC1E5417B0A1AC7D /* SpeechRecognizerManager.swift */,
 				533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */,
+				4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -264,6 +267,7 @@
 				D5F57AD6AACB9AB097047B1F /* ThreadActivityAttributes.swift in Sources */,
 				B87EBA58DF24D32D97192864 /* ThreadApp.swift in Sources */,
 				2BF17F181249BC04F80F0655 /* ThreadNotificationManager.swift in Sources */,
+				BBC69D41E9DE36053F43376C /* ThreadSpeechAnnouncer.swift in Sources */,
 				585DAB9912D01015CC662800 /* VirtualMachineScreenSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

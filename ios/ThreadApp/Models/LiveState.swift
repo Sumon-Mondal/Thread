@@ -218,15 +218,18 @@ public class ThreadSessionManager: ObservableObject {
     @Published public var activePoll: LiveMeetingPoll? = nil
     @Published public var activeForm: AgentFormPayload? = nil
 
-    private let speechSynthesizer = AVSpeechSynthesizer()
+    // In-Meeting Reaction Feedback (e.g. Hands-Free Driving Thumbs Up)
+    @Published public var showFloatingReaction: Bool = false
+    @Published public var lastSentReaction: String? = nil
 
-    public func speakAloud(_ text: String) {
-        guard isDrivingMode else { return }
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        utterance.rate = 0.52
-        utterance.pitchMultiplier = 1.02
-        speechSynthesizer.speak(utterance)
+    // MARK: - Voice Announcements & Driving Speech
+    public func speakAloud(_ text: String, force: Bool = false) {
+        guard isDrivingMode || force else { return }
+        ThreadSpeechAnnouncer.shared.speak(text)
+    }
+
+    public func stopSpeaking() {
+        ThreadSpeechAnnouncer.shared.stop()
     }
 
     // In-Room Microphone Audio Transcription (Consent & Ethics Compliant)
@@ -455,9 +458,23 @@ public class ThreadSessionManager: ObservableObject {
                 matchedSkills: ["Priority Referral"]
             ),
             DemoMoment(
-                id: "m7", type: "OPPORTUNITY", speaker: "Michael Torres", timeSec: 311,
-                takeaway: "We need a better trash management system.",
-                detail: "Michael highlighted campus facility sustainability targets: implementing smart IoT recycling bins and aluminum can disposal across campus by November 15. Contact eco-lead jordan.lee@helixsupply.com to join the committee.",
+                id: "m6b", type: "OPPORTUNITY", speaker: "Caroline Zhang", timeSec: 135,
+                takeaway: "Caroline is sharing her work experience in MLH.",
+                detail: "Caroline shared how MLH Fellowship prepared her for Nova Dynamics technical rounds.",
+                link: nil,
+                matchedSkills: ["Open Source", "MLH Fellowship"]
+            ),
+            DemoMoment(
+                id: "m6c", type: "REQUIREMENT", speaker: "Steve Miller", timeSec: 165,
+                takeaway: "Steve is talking about the STAR Method of interview.",
+                detail: "Steve recommended structuring technical and behavioral answers using Situation, Task, Action, Result.",
+                link: nil,
+                matchedSkills: ["Interview Prep", "STAR Method"]
+            ),
+            DemoMoment(
+                id: "m7", type: "OPPORTUNITY", speaker: "Priya Nair", timeSec: 195,
+                takeaway: "Priya is talking about waste management.",
+                detail: "Priya highlighted campus facility sustainability targets: implementing smart IoT recycling bins and aluminum can disposal across campus by November 15. Contact eco-lead jordan.lee@helixsupply.com to join the committee.",
                 link: "https://helixsupply.com/sustainability/smart-bins",
                 matchedSkills: ["Sustainability", "IoT Sensors", "Resource Management"]
             )
@@ -484,7 +501,9 @@ public class ThreadSessionManager: ObservableObject {
             DemoTranscript(id: "t8", speaker: "Michael Torres", role: "Staff Engineer", timeSec: 70, text: "We look for strong fundamentals in Python, and some exposure to distributed systems.", momentType: "REQUIREMENT"),
             DemoTranscript(id: "t9", speaker: "Priya Nair", role: "Hiring Manager", timeSec: 90, text: "We're hosting an engineering Q&A panel next Thursday at 4 PM Eastern. Highly recommend attending.", momentType: "EVENT"),
             DemoTranscript(id: "t10", speaker: "Priya Nair", role: "Hiring Manager", timeSec: 112, text: "Referral applications get priority review, so definitely mention you attended today.", momentType: "DECISION"),
-            DemoTranscript(id: "t11", speaker: "Michael Torres", role: "Staff Engineer", timeSec: 311, text: "Looking at campus facilities, we really need a better trash management and aluminum can recycling system before winter break. If anyone wants to lead that initiative with Jordan Lee by November 15, let us know at jordan.lee@helixsupply.com.", momentType: "OPPORTUNITY")
+            DemoTranscript(id: "t10b", speaker: "Caroline Zhang", role: "2026 Intern & MLH Fellow", timeSec: 135, text: "I did MLH Fellowship before Nova Dynamics, and that hands-on open source experience really helped me pass the technical interviews.", momentType: "OPPORTUNITY"),
+            DemoTranscript(id: "t10c", speaker: "Steve Miller", role: "Engineering Lead", timeSec: 165, text: "For behavioral and architecture questions, always use the STAR method — Situation, Task, Action, and Result. It makes your impact crystal clear.", momentType: "REQUIREMENT"),
+            DemoTranscript(id: "t11", speaker: "Priya Nair", role: "Hiring Manager", timeSec: 195, text: "Looking at campus facilities, we really need a better waste management and recycling system before winter break. If anyone wants to lead that initiative with Jordan Lee, let us know at jordan.lee@helixsupply.com.", momentType: "OPPORTUNITY")
         ]
     }
 
@@ -723,8 +742,30 @@ public class ThreadSessionManager: ObservableObject {
 
     /// Sends a reaction emoji into the active Zoom/Meet session via the VM
     public func sendReactionInMeeting(_ emoji: String) {
-        showNotification(text: "\(emoji) Reaction sent via Thread")
+        lastSentReaction = emoji
+        showFloatingReaction = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { [weak self] in
+            self?.showFloatingReaction = false
+        }
+
+        showNotification(text: "\(emoji) Reaction sent to meeting")
+        let gen = UIImpactFeedbackGenerator(style: .rigid)
+        gen.impactOccurred()
+
+        if isDrivingMode {
+            speakAloud("Sent thumbs up to meeting")
+        }
+
         sendVmCommand(["action": "react", "emoji": emoji])
+
+        let chatMsg = DemoChatMessage(
+            id: "react-\(UUID().uuidString.prefix(6))",
+            from: "You (via Thread)",
+            text: "\(emoji) (Reaction)",
+            timeSec: elapsed,
+            isAgent: false
+        )
+        chat.append(chatMsg)
     }
 
     /// Leaves the active Zoom/Meet session via the VM
@@ -1971,53 +2012,61 @@ public class ThreadSessionManager: ObservableObject {
             currentSpeaker = SpeakerInfo(name: "Michael Torres", role: "Staff Engineer", initials: "MT", color: .purple)
         } else if line.speaker.contains("Priya") {
             currentSpeaker = SpeakerInfo(name: "Priya Nair", role: "Hiring Manager", initials: "PN", color: .teal)
+        } else if line.speaker.contains("Caroline") {
+            currentSpeaker = SpeakerInfo(name: "Caroline Zhang", role: "2026 Intern & MLH Fellow", initials: "CZ", color: .orange)
+        } else if line.speaker.contains("Steve") {
+            currentSpeaker = SpeakerInfo(name: "Steve Miller", role: "Engineering Lead", initials: "SM", color: .indigo)
         }
 
         screenShareActive = (elapsed >= 36 && elapsed <= 75)
 
-        // 2. Map line ID to live headline, summary, and in-app toast notification
-        let (headline, summary, toast): (String, String, String) = {
+        // 2. Map line ID to live headline, summary, in-app toast notification, and concise spoken speech
+        let (headline, summary, toast, spoken): (String, String, String, String) = {
             switch line.id {
             case "t1":
-                return ("Discovery Day", "Welcome to Discovery Day · 200+ students live", "🎙 Sarah Chen: Welcome everyone to Nova Dynamics Discovery Day!")
+                return ("Sarah is introducing Discovery Day", "Sarah is introducing Nova Dynamics Discovery Day to 200+ students", "🎙 Sarah is introducing Discovery Day", "Sarah is introducing Discovery Day")
             case "t2":
-                return ("Housekeeping", "Session is recorded · All links will be shared", "🎙 Sarah Chen: Quick housekeeping — session is recorded and links will be shared")
+                return ("Sarah is sharing housekeeping", "Sarah is sharing session recording and links", "🎙 Sarah is sharing housekeeping notes", "Sarah is sharing housekeeping notes")
             case "t3":
-                return ("Internships Open", "Summer 2027 SWE internship applications open today", "✦ Sarah Chen: Summer 2027 SWE Applications Open Today!")
+                return ("Sarah is announcing Summer 2027 SWE", "Sarah is announcing Summer 2027 SWE internships open today", "✦ Sarah is announcing Summer 2027 SWE internships", "Sarah is announcing Summer 2027 SWE internships")
             case "t4":
-                return ("Paid AI Roles", "Paid 12-week roles across Platform, Infra, Applied AI", "🎙 Sarah Chen: Paid 12-week roles across Platform, Infra, Applied AI")
+                return ("Sarah is detailing paid AI roles", "Sarah is detailing paid 12-week roles across Platform and AI", "🎙 Sarah is detailing paid engineering roles", "Sarah is detailing paid engineering roles")
             case "t5":
-                return ("Portal QR Code", "Gemini Vision decoded slide QR code for application portal", "📱 Michael Torres: Scan QR code on slide for application portal")
+                return ("Michael is sharing the application QR code", "Michael is sharing the application portal QR code on screen", "📱 Michael is sharing the application portal QR code", "Michael is sharing the application portal QR code")
             case "t6":
-                return ("Pre-Fill Portal", "Portal has resume pre-fill & statement of interest", "🎙 Michael Torres: Portal has profile pre-fill & portfolio link")
+                return ("Michael is explaining portal pre-fill", "Michael is explaining profile pre-fill and portfolio links", "🎙 Michael is explaining application portal options", "Michael is explaining application portal options")
             case "t7":
-                return ("Oct 18 Cutoff", "Applications close firmly Oct 18, 11:59 PM ET", "⏰ Sarah Chen: Applications close firmly October 18th at 11:59 PM")
+                return ("Sarah is stating the October 18 deadline", "Sarah is stating applications close firmly October 18th", "⏰ Sarah is stating the October 18 deadline", "Sarah is stating the October 18 deadline")
             case "t8":
-                return ("Python & Systems", "Strong fundamentals in Python & distributed systems", "🎙 Michael Torres: Looking for Python & distributed systems")
+                return ("Michael is outlining Python and systems", "Michael is outlining Python and distributed systems requirements", "🎙 Michael is outlining Python and systems requirements", "Michael is outlining Python and systems requirements")
             case "t9":
-                return ("Q&A Thursday 4PM", "Engineering Q&A panel next Thursday at 4 PM Eastern", "📅 Priya Nair: Engineering Q&A panel next Thursday at 4 PM Eastern")
+                return ("Priya is announcing next Thursday's Q&A", "Priya is announcing the engineering Q&A panel next Thursday at 4 PM", "📅 Priya is announcing the engineering Q&A panel", "Priya is announcing next Thursday's engineering Q and A")
             case "t10":
-                return ("Priority Referrals", "Referral applications receive priority queue review", "✦ Priya Nair: Referral applications get priority review")
+                return ("Priya is discussing referral priority", "Priya is discussing priority review for student referrals", "✦ Priya is discussing referral priority review", "Priya is discussing priority review for referrals")
+            case "t10b":
+                return ("Caroline is sharing her work experience in MLH", "Caroline is sharing her work experience in MLH and open source fellowships", "🌟 Caroline is sharing her work experience in MLH", "Caroline is sharing her work experience in MLH")
+            case "t10c":
+                return ("Steve is talking about STAR Method of interview", "Steve is talking about STAR Method of interview for technical answers", "💡 Steve is talking about STAR Method of interview", "Steve is talking about STAR Method of interview")
             case "t11":
-                return ("Smart Recycling", "Campus trash & aluminum can sorting initiative", "🌱 Michael Torres: Campus recycling initiative due Nov 15")
+                return ("Priya is talking about waste management", "Priya is talking about waste management and campus recycling", "🌱 Priya is talking about waste management", "Priya is talking about waste management")
             default:
                 let (h, s) = ThreadSessionManager.summarizeLiveSpeech(text: line.text)
-                return (h, s, "🎙 \(currentSpeaker.name): \(line.text)")
+                return (h, s, "🎙 \(currentSpeaker.name) is speaking", "\(currentSpeaker.name) is speaking")
             }
         }()
 
         self.shortHeadline = headline
         self.liveSummary = summary
 
-        // 3. New speech event trigger: update notification banner toast & post system notification
+        // 3. New speech event trigger: update notification banner toast & post system notification & speak aloud
         if lastSpokenTranscriptId != line.id {
             lastSpokenTranscriptId = line.id
             showNotification(text: toast)
             ThreadNotificationManager.shared.postMomentNotification(
-                title: "\(currentSpeaker.name) · \(headline)",
-                body: toast
+                title: headline,
+                body: summary
             )
-            speakAloud("\(currentSpeaker.name): \(headline). \(summary)")
+            speakAloud(spoken)
         }
 
         // 4. Trigger live interactive poll at 48 seconds

@@ -227,8 +227,9 @@
     let base = 0;
     for (const c of committed) {
       if (c.speaker !== speaker) continue;
-      if (c.text.includes(text)) return text.length;
-      if (text.startsWith(c.text)) base = Math.max(base, c.text.length);
+      // A new line's first word ("We") must not match inside an old one ("Welcome…"), so short text only counts if identical.
+      if (c.text === text || (text.length >= 12 && c.text.includes(text))) return text.length;
+      if (c.text.length >= 12 && text.startsWith(c.text)) base = Math.max(base, c.text.length);
     }
     return base;
   }

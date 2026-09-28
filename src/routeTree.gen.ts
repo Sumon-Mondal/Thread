@@ -28,6 +28,7 @@ import { Route as ApiDailyRouteImport } from './routes/api/daily'
 import { Route as ApiExtractRouteImport } from './routes/api/extract'
 import { Route as ApiLiveStateRouteImport } from './routes/api/live-state'
 import { Route as ApiSendEmailRouteImport } from './routes/api/send-email'
+import { Route as ApiTtsRouteImport } from './routes/api/tts'
 import { Route as ApiVmBotRouteImport } from './routes/api/vm-bot'
 import { Route as ApplyFormIdRouteImport } from './routes/apply.$formId'
 import { Route as MeetingsIndexRouteImport } from './routes/meetings.index'
@@ -128,6 +129,11 @@ const ApiSendEmailRoute = ApiSendEmailRouteImport.update({
   path: '/api/send-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTtsRoute = ApiTtsRouteImport.update({
+  id: '/api/tts',
+  path: '/api/tts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVmBotRoute = ApiVmBotRouteImport.update({
   id: '/api/vm-bot',
   path: '/api/vm-bot',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/tts': typeof ApiTtsRoute
   '/api/vm-bot': typeof ApiVmBotRoute
   '/apply/$formId': typeof ApplyFormIdRoute
   '/meetings/$id': typeof MeetingsIdRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/tts': typeof ApiTtsRoute
   '/api/vm-bot': typeof ApiVmBotRoute
   '/apply/$formId': typeof ApplyFormIdRoute
   '/meetings/$id': typeof MeetingsIdRoute
@@ -220,6 +228,7 @@ export interface FileRoutesById {
   '/api/extract': typeof ApiExtractRoute
   '/api/live-state': typeof ApiLiveStateRoute
   '/api/send-email': typeof ApiSendEmailRoute
+  '/api/tts': typeof ApiTtsRoute
   '/api/vm-bot': typeof ApiVmBotRoute
   '/apply/$formId': typeof ApplyFormIdRoute
   '/meetings/$id': typeof MeetingsIdRoute
@@ -247,6 +256,7 @@ export interface FileRouteTypes {
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
+    | '/api/tts'
     | '/api/vm-bot'
     | '/apply/$formId'
     | '/meetings/$id'
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
+    | '/api/tts'
     | '/api/vm-bot'
     | '/apply/$formId'
     | '/meetings/$id'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/api/extract'
     | '/api/live-state'
     | '/api/send-email'
+    | '/api/tts'
     | '/api/vm-bot'
     | '/apply/$formId'
     | '/meetings/$id'
@@ -323,6 +335,7 @@ export interface RootRouteChildren {
   ApiExtractRoute: typeof ApiExtractRoute
   ApiLiveStateRoute: typeof ApiLiveStateRoute
   ApiSendEmailRoute: typeof ApiSendEmailRoute
+  ApiTtsRoute: typeof ApiTtsRoute
   ApiVmBotRoute: typeof ApiVmBotRoute
   ApplyFormIdRoute: typeof ApplyFormIdRoute
   MeetingsIdRoute: typeof MeetingsIdRoute
@@ -464,6 +477,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSendEmailRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tts': {
+      id: '/api/tts'
+      path: '/api/tts'
+      fullPath: '/api/tts'
+      preLoaderRoute: typeof ApiTtsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/vm-bot': {
       id: '/api/vm-bot'
       path: '/api/vm-bot'
@@ -515,6 +535,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiExtractRoute: ApiExtractRoute,
   ApiLiveStateRoute: ApiLiveStateRoute,
   ApiSendEmailRoute: ApiSendEmailRoute,
+  ApiTtsRoute: ApiTtsRoute,
   ApiVmBotRoute: ApiVmBotRoute,
   ApplyFormIdRoute: ApplyFormIdRoute,
   MeetingsIdRoute: MeetingsIdRoute,

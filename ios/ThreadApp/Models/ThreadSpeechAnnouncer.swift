@@ -24,6 +24,15 @@ public class ThreadSpeechAnnouncer: NSObject, AVSpeechSynthesizerDelegate, AVAud
         }
     }
 
+    /// Same calm, clear voices as the web's /api/tts (Sarah, Matilda, Alice, Jessica, Rachel); the first one the
+    /// account has wins, and it's remembered so later announcements take one request.
+    static let preferredVoiceIds = ["EXAVITQu4vr4xnSDxMaL", "XrExE9yKIg1WjnnlVkGX", "Xb7hH8MSUJpSbSDYk0k2", "cgSgspJ2msm6clMCkdW9", "21m00Tcm4TlvDq8ikWAM"]
+    private static let voiceDefaultsKey = "Thread_elevenLabsVoiceId"
+
+    static func pickVoice(from available: [String]) -> String? {
+        preferredVoiceIds.first(where: available.contains) ?? available.first
+    }
+
     private override init() {
         super.init()
         speechSynthesizer.delegate = self
@@ -88,32 +97,49 @@ public class ThreadSpeechAnnouncer: NSObject, AVSpeechSynthesizerDelegate, AVAud
         speechSynthesizer.speak(utterance)
     }
 
+    private func withVoice(key: String, _ use: @escaping (String) -> Void) {
+        if let saved = UserDefaults.standard.string(forKey: Self.voiceDefaultsKey) { return use(saved) }
+        guard let url = URL(string: "https://api.elevenlabs.io/v1/voices") else { return use(Self.preferredVoiceIds[0]) }
+        var request = URLRequest(url: url)
+        request.setValue(key, forHTTPHeaderField: "xi-api-key")
+        URLSession.shared.dataTask(with: request) { data, response, _ in
+            // A key without voice-read access can still speak, so keep the first choice then.
+            guard (response as? HTTPURLResponse)?.statusCode == 200, let data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let voices = json["voices"] as? [[String: Any]],
+                  let voice = Self.pickVoice(from: voices.compactMap { $0["voice_id"] as? String }) else {
+                return use(Self.preferredVoiceIds[0])
+            }
+            UserDefaults.standard.set(voice, forKey: Self.voiceDefaultsKey)
+            use(voice)
+        }.resume()
+    }
+
     private func speakWithElevenLabs(text: String, completion: @escaping (Bool) -> Void) {
         let key = elevenLabsApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Rachel voice ID: 21m00Tcm4TlvDq8ikWAM
-        guard let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM") else {
-            completion(false)
-            return
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(key, forHTTPHeaderField: "xi-api-key")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: Any] = [
-            "text": text,
-            "model_id": "eleven_turbo_v2_5",
-            "voice_settings": [
-                "stability": 0.5,
-                "similarity_boost": 0.8
+        withVoice(key: key) { [weak self] voice in
+            guard let self, let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(voice)?output_format=mp3_44100_128") else {
+                return completion(false)
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue(key, forHTTPHeaderField: "xi-api-key")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let body: [String: Any] = [
+                "text": text,
+                "model_id": "eleven_flash_v2_5",
+                "voice_settings": ["stability": 0.5, "similarity_boost": 0.75, "use_speaker_boost": true],
             ]
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+            self.play(request, completion: completion)
+        }
+    }
 
+    private func play(_ request: URLRequest, completion: @escaping (Bool) -> Void) {
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            guard let self = self, let data = data, error == nil,
-                  let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            if status == 404 { UserDefaults.standard.removeObject(forKey: Self.voiceDefaultsKey) } // voice left the account; pick again next time
+            guard let self = self, let data = data, error == nil, status == 200 else {
                 completion(false)
                 return
             }

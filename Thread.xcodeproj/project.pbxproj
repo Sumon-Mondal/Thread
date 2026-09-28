@@ -10,6 +10,7 @@
 		01B66835A2D851C100C2E819 /* ThreadCarPlayContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059786D4EE0B9ECDA638AED7 /* ThreadCarPlayContent.swift */; };
 		0B4C8F67B4F429813FA077E4 /* EmailComposerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */; };
 		10FC86E1A29B0FE672D59BA9 /* DashboardActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 311BA277EC9AB8790941298D /* DashboardActivityView.swift */; };
+		11FB45D6F8914DD5DC7EC2A8 /* VoiceChoiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 129729963BC736E4541FDD94 /* VoiceChoiceTests.swift */; };
 		2BF17F181249BC04F80F0655 /* ThreadNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */; };
 		3662D771CF913B9DA23628ED /* MeetingControlsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */; };
 		583B0320F59D78CF48B1B125 /* MeetingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C44F2445929C2F2F61547F9 /* MeetingRoomView.swift */; };
@@ -76,6 +77,7 @@
 		059786D4EE0B9ECDA638AED7 /* ThreadCarPlayContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCarPlayContent.swift; sourceTree = "<group>"; };
 		084C60DF2B29666BFDAD8341 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		0AAB832E9C536CF17AFFD4C2 /* AgentMomentInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMomentInspectorSheet.swift; sourceTree = "<group>"; };
+		129729963BC736E4541FDD94 /* VoiceChoiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceChoiceTests.swift; sourceTree = "<group>"; };
 		20CA2C190F8A5154DA238559 /* ThreadAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadAppShortcuts.swift; sourceTree = "<group>"; };
 		23C51DA8ABC1BE583360D38D /* GlassComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassComponents.swift; sourceTree = "<group>"; };
 		28EEC1BEAE9A9998C11D2B63 /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
@@ -145,6 +147,7 @@
 				E680277DF3BC0EC36813879E /* CarPlayContentTests.swift */,
 				4169AE5F34EBA9BAE10CE643 /* DashboardCardRenderTests.swift */,
 				B90989767125B0AD92FBB306 /* ServerUrlTests.swift */,
+				129729963BC736E4541FDD94 /* VoiceChoiceTests.swift */,
 			);
 			name = ThreadAppTests;
 			path = ios/ThreadAppTests;
@@ -382,6 +385,7 @@
 				E203BD34A942583D72D059F5 /* DashboardCardRenderTests.swift in Sources */,
 				BEC6C677E44B8E11C4E4C80E /* ServerUrlTests.swift in Sources */,
 				7859CAA79A0A67EA8CB0BADA /* ThreadActivityAttributes.swift in Sources */,
+				11FB45D6F8914DD5DC7EC2A8 /* VoiceChoiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

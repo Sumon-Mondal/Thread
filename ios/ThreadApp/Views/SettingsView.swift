@@ -341,7 +341,7 @@ public struct SettingsView: View {
                         Text("Sync Server Endpoint")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.white)
-                        Text(manager.serverUrl == ThreadSessionManager.macServerUrl ? "This Mac (10.11.6.47:8080)" : "Lovable cloud")
+                        Text(manager.serverUrl == ThreadSessionManager.macServerUrl ? "This Mac (\(URL(string: ThreadSessionManager.macServerUrl)?.host ?? "Mac"))" : "Lovable cloud")
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.cyan)
                     }

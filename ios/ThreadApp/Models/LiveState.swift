@@ -328,10 +328,21 @@ public class ThreadSessionManager: ObservableObject {
     // Backend endpoint
     public static let cloudServerUrl = "https://project--51f06c23-f68d-49c7-8a46-ff0969ec8881.lovable.app"
     /// The web app's dev server (`npm run dev -- --host 0.0.0.0`) on the Mac, reachable on the same Wi-Fi.
-    public static let macServerUrl = "http://10.11.6.47:8080"
+    /// The Mac's Bonjour name keeps working when its Wi-Fi address changes (it did between networks).
+    public static let macServerUrl = "http://Sumons-MacBook-Air.local:8080"
 
-    @Published public var serverUrl: String = UserDefaults.standard.string(forKey: "Thread_serverUrl") ?? ThreadSessionManager.cloudServerUrl {
+    @Published public var serverUrl: String = ThreadSessionManager.savedServerUrl() {
         didSet { UserDefaults.standard.set(serverUrl, forKey: "Thread_serverUrl") }
+    }
+
+    /// Phones that chose "This Mac" before it moved to the Bonjour name still hold the Mac's old Wi-Fi address.
+    static func savedServerUrl() -> String {
+        let saved = UserDefaults.standard.string(forKey: "Thread_serverUrl")
+        guard saved != "http://10.11.6.47:8080" else {
+            UserDefaults.standard.set(macServerUrl, forKey: "Thread_serverUrl")
+            return macServerUrl
+        }
+        return saved ?? cloudServerUrl
     }
     private var demoTimer: Timer?
     private var liveActivity: Any? = nil
@@ -2272,7 +2283,7 @@ public class ThreadSessionManager: ObservableObject {
             return
         }
 
-        if let existing = Activity<ThreadActivityAttributes>.activities.first {
+        if let existing = runningActivity {
             self.liveActivity = existing
             updateLiveActivity()
             return
@@ -2320,8 +2331,11 @@ public class ThreadSessionManager: ObservableObject {
         }
 
         let alert = announceNewMomentIfNeeded()
-        let activity = (liveActivity as? Activity<ThreadActivityAttributes>) ?? Activity<ThreadActivityAttributes>.activities.first
-        guard let activity = activity else { return }
+        guard let activity = runningActivity else {
+            // The meeting is still on but its activity was ended (or never started): show a fresh one.
+            startLiveActivity()
+            return
+        }
         self.liveActivity = activity
 
         let firstStaged = visibleActions.first(where: { $0.status == "staged" })
@@ -2379,6 +2393,13 @@ public class ThreadSessionManager: ObservableObject {
             body: LocalizedStringResource(stringLiteral: moment.takeaway),
             sound: .default
         )
+    }
+
+    /// Ended activities linger in `Activity.activities` for a moment and silently swallow updates.
+    private var runningActivity: Activity<ThreadActivityAttributes>? {
+        let isRunning: (Activity<ThreadActivityAttributes>) -> Bool = { $0.activityState == .active || $0.activityState == .stale }
+        if let current = liveActivity as? Activity<ThreadActivityAttributes>, isRunning(current) { return current }
+        return Activity<ThreadActivityAttributes>.activities.first(where: isRunning)
     }
 
     public func endLiveActivity() {

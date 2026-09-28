@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01B66835A2D851C100C2E819 /* ThreadCarPlayContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059786D4EE0B9ECDA638AED7 /* ThreadCarPlayContent.swift */; };
 		0B4C8F67B4F429813FA077E4 /* EmailComposerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */; };
+		10FC86E1A29B0FE672D59BA9 /* DashboardActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 311BA277EC9AB8790941298D /* DashboardActivityView.swift */; };
 		2BF17F181249BC04F80F0655 /* ThreadNotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */; };
 		3662D771CF913B9DA23628ED /* MeetingControlsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */; };
 		583B0320F59D78CF48B1B125 /* MeetingRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C44F2445929C2F2F61547F9 /* MeetingRoomView.swift */; };
@@ -15,8 +17,11 @@
 		5EFDAAFACC3F5446C0A1C4F2 /* LiveState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A7B707258DDEF8E46862DBE /* LiveState.swift */; };
 		68405AED6D72EA89B605725D /* CarPlayDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDC3C7A7A098A753B531E7B2 /* CarPlayDashboardView.swift */; };
 		74D013D6C0363B201F896B5C /* ThreadWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3BC45120E7A05E18792A8E8C /* ThreadWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		755635DE1B4D8E308DA45207 /* ThreadAppShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20CA2C190F8A5154DA238559 /* ThreadAppShortcuts.swift */; };
+		7859CAA79A0A67EA8CB0BADA /* ThreadActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */; };
 		7BF726E0CAA9875525098AC3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 29BD60457FD6A6E7E30997EA /* Assets.xcassets */; };
 		8088CED3E3F09AA28C1A9949 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A948F2FC7D755B5061B4950D /* AgentView.swift */; };
+		85DC1864B2ACDF7EEB426C34 /* CarPlayContentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E680277DF3BC0EC36813879E /* CarPlayContentTests.swift */; };
 		88007EE1D4E3194B0E8EFF12 /* CockpitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */; };
 		987051345EF5D96BEA7C15D0 /* ThreadActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */; };
 		A5F0660F438EABD2FD1C0EA6 /* SpeechRecognizerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B58E75FCC1E5417B0A1AC7D /* SpeechRecognizerManager.swift */; };
@@ -25,15 +30,25 @@
 		B9B0888BC79BF165748BF43B /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28EEC1BEAE9A9998C11D2B63 /* IntegrationsView.swift */; };
 		BBC69D41E9DE36053F43376C /* ThreadSpeechAnnouncer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */; };
 		BD25AFA81EBE68B8D83F2409 /* ThreadLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 848151C80874DF1E18D51DB4 /* ThreadLiveActivity.swift */; };
+		BEC6C677E44B8E11C4E4C80E /* ServerUrlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90989767125B0AD92FBB306 /* ServerUrlTests.swift */; };
 		C06060AF3C4350E04CC42446 /* ThreadWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8901E208899C9CAC1FDDBC2A /* ThreadWidgetBundle.swift */; };
 		D5F57AD6AACB9AB097047B1F /* ThreadActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */; };
+		E203BD34A942583D72D059F5 /* DashboardCardRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4169AE5F34EBA9BAE10CE643 /* DashboardCardRenderTests.swift */; };
 		E2448A68264077E480A3BBCD /* AgentMomentInspectorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AAB832E9C536CF17AFFD4C2 /* AgentMomentInspectorSheet.swift */; };
+		E964D874B767C7E302BFAF74 /* DashboardActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 311BA277EC9AB8790941298D /* DashboardActivityView.swift */; };
 		EC1DFEEFAB7ADD4400C32278 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6C2721C988E32AF3AE9142C /* SettingsView.swift */; };
 		EE925C94F6DD4E0B5D33F9C9 /* CarPlay.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6218539D39CCEAB6297603A6 /* CarPlay.framework */; };
 		F8A67F8D97022C70922E52B3 /* GlassComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23C51DA8ABC1BE583360D38D /* GlassComponents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		BE13034BE2DC6B042E290AAF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A8639EFD811159224F67E52E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0EFEAC41DAE2A55D9C9BCA23;
+			remoteInfo = ThreadApp;
+		};
 		E371805B507D99465CAF23C0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A8639EFD811159224F67E52E /* Project object */;
@@ -58,13 +73,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		059786D4EE0B9ECDA638AED7 /* ThreadCarPlayContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCarPlayContent.swift; sourceTree = "<group>"; };
 		084C60DF2B29666BFDAD8341 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		0AAB832E9C536CF17AFFD4C2 /* AgentMomentInspectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentMomentInspectorSheet.swift; sourceTree = "<group>"; };
+		20CA2C190F8A5154DA238559 /* ThreadAppShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadAppShortcuts.swift; sourceTree = "<group>"; };
 		23C51DA8ABC1BE583360D38D /* GlassComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassComponents.swift; sourceTree = "<group>"; };
 		28EEC1BEAE9A9998C11D2B63 /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 		29BD60457FD6A6E7E30997EA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		311BA277EC9AB8790941298D /* DashboardActivityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardActivityView.swift; sourceTree = "<group>"; };
 		326C7AD3F841B1236F905B38 /* VirtualMachineScreenSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualMachineScreenSheet.swift; sourceTree = "<group>"; };
+		3786EC7A10F493A271DFBF7F /* CarPlaySimulator.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = CarPlaySimulator.entitlements; sourceTree = "<group>"; };
 		3BC45120E7A05E18792A8E8C /* ThreadWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ThreadWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4169AE5F34EBA9BAE10CE643 /* DashboardCardRenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardCardRenderTests.swift; sourceTree = "<group>"; };
 		4C4A3456DE6A80694C0F923E /* ThreadSpeechAnnouncer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadSpeechAnnouncer.swift; sourceTree = "<group>"; };
 		533AC91CC118C70E411C1734 /* ThreadNotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadNotificationManager.swift; sourceTree = "<group>"; };
 		5721688A10CD78595E1F8905 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -73,16 +93,19 @@
 		6B58E75FCC1E5417B0A1AC7D /* SpeechRecognizerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechRecognizerManager.swift; sourceTree = "<group>"; };
 		7A7B707258DDEF8E46862DBE /* LiveState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveState.swift; sourceTree = "<group>"; };
 		848151C80874DF1E18D51DB4 /* ThreadLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadLiveActivity.swift; sourceTree = "<group>"; };
+		87D08EA7D6ED888056CA2E2A /* ThreadAppTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ThreadAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		8901E208899C9CAC1FDDBC2A /* ThreadWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadWidgetBundle.swift; sourceTree = "<group>"; };
 		8C44F2445929C2F2F61547F9 /* MeetingRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingRoomView.swift; sourceTree = "<group>"; };
 		A948F2FC7D755B5061B4950D /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
 		B6C2721C988E32AF3AE9142C /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B90989767125B0AD92FBB306 /* ServerUrlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerUrlTests.swift; sourceTree = "<group>"; };
 		C46BDDDFCC448EFE18C4B9A8 /* CockpitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CockpitView.swift; sourceTree = "<group>"; };
 		C5806F1D2FBC9516369E0CCE /* EmailComposerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailComposerSheet.swift; sourceTree = "<group>"; };
 		DBBA0A17CCD76790DBE08EE3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		DDC3C7A7A098A753B531E7B2 /* CarPlayDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayDashboardView.swift; sourceTree = "<group>"; };
 		E4EE580FE311F364FCD3AF67 /* ThreadCarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadCarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		E5442CAF3E7AE4757E272CE7 /* ThreadApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ThreadApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E680277DF3BC0EC36813879E /* CarPlayContentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayContentTests.swift; sourceTree = "<group>"; };
 		E7CD33427A9BB053B919F53A /* MeetingControlsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingControlsSheet.swift; sourceTree = "<group>"; };
 		F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -99,6 +122,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		10170E8FD0D7406137721A03 /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				20CA2C190F8A5154DA238559 /* ThreadAppShortcuts.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
 		1E12570C51CADCCA983B2D09 /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -106,6 +137,17 @@
 			);
 			name = Config;
 			path = ios/Config;
+			sourceTree = "<group>";
+		};
+		2146D84441DAF29BF8A0E67C /* ThreadAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				E680277DF3BC0EC36813879E /* CarPlayContentTests.swift */,
+				4169AE5F34EBA9BAE10CE643 /* DashboardCardRenderTests.swift */,
+				B90989767125B0AD92FBB306 /* ServerUrlTests.swift */,
+			);
+			name = ThreadAppTests;
+			path = ios/ThreadAppTests;
 			sourceTree = "<group>";
 		};
 		5EC4E8E19AA8F846C5B512F7 /* Models */ = {
@@ -124,6 +166,7 @@
 			children = (
 				1E12570C51CADCCA983B2D09 /* Config */,
 				C0F67FBC6B081299D2CBB7A2 /* ThreadApp */,
+				2146D84441DAF29BF8A0E67C /* ThreadAppTests */,
 				737699405DD41BC61832A4D5 /* ThreadWidget */,
 				F0C5CD3A4EF67EF3459CCB0D /* Frameworks */,
 				A05E0BC879D67EFBB7CD36B8 /* Products */,
@@ -133,6 +176,7 @@
 		737699405DD41BC61832A4D5 /* ThreadWidget */ = {
 			isa = PBXGroup;
 			children = (
+				311BA277EC9AB8790941298D /* DashboardActivityView.swift */,
 				5721688A10CD78595E1F8905 /* Info.plist */,
 				696AEAB9770971021F465F7A /* ThreadActivityAttributes.swift */,
 				848151C80874DF1E18D51DB4 /* ThreadLiveActivity.swift */,
@@ -164,6 +208,7 @@
 			isa = PBXGroup;
 			children = (
 				E5442CAF3E7AE4757E272CE7 /* ThreadApp.app */,
+				87D08EA7D6ED888056CA2E2A /* ThreadAppTests.xctest */,
 				3BC45120E7A05E18792A8E8C /* ThreadWidget.appex */,
 			);
 			name = Products;
@@ -173,9 +218,11 @@
 			isa = PBXGroup;
 			children = (
 				29BD60457FD6A6E7E30997EA /* Assets.xcassets */,
+				3786EC7A10F493A271DFBF7F /* CarPlaySimulator.entitlements */,
 				DBBA0A17CCD76790DBE08EE3 /* Info.plist */,
 				F3B8E08A52D23F3A21A69AB1 /* ThreadApp.swift */,
 				ED841F1CE2D6F9890B6540D9 /* CarPlay */,
+				10170E8FD0D7406137721A03 /* Intents */,
 				5EC4E8E19AA8F846C5B512F7 /* Models */,
 				846026B43D9401EC6E743476 /* Views */,
 			);
@@ -186,6 +233,7 @@
 		ED841F1CE2D6F9890B6540D9 /* CarPlay */ = {
 			isa = PBXGroup;
 			children = (
+				059786D4EE0B9ECDA638AED7 /* ThreadCarPlayContent.swift */,
 				E4EE580FE311F364FCD3AF67 /* ThreadCarPlaySceneDelegate.swift */,
 			);
 			path = CarPlay;
@@ -223,6 +271,24 @@
 			productReference = E5442CAF3E7AE4757E272CE7 /* ThreadApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		77C7694AD725D14C44A8D3B4 /* ThreadAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 29ED1705ED6BBE26009F770B /* Build configuration list for PBXNativeTarget "ThreadAppTests" */;
+			buildPhases = (
+				BDB3A01DE27CF6F1D9732CB4 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				218AAB39CB64976E4A4EBD61 /* PBXTargetDependency */,
+			);
+			name = ThreadAppTests;
+			packageProductDependencies = (
+			);
+			productName = ThreadAppTests;
+			productReference = 87D08EA7D6ED888056CA2E2A /* ThreadAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		A8CF6D2B935D96CD05865D74 /* ThreadWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EF5F48300215E135F2DF6BBF /* Build configuration list for PBXNativeTarget "ThreadWidget" */;
@@ -253,6 +319,10 @@
 						DevelopmentTeam = PQ3966J4X9;
 						ProvisioningStyle = Automatic;
 					};
+					77C7694AD725D14C44A8D3B4 = {
+						DevelopmentTeam = PQ3966J4X9;
+						ProvisioningStyle = Automatic;
+					};
 					A8CF6D2B935D96CD05865D74 = {
 						DevelopmentTeam = PQ3966J4X9;
 						ProvisioningStyle = Automatic;
@@ -275,6 +345,7 @@
 			targets = (
 				0EFEAC41DAE2A55D9C9BCA23 /* ThreadApp */,
 				A8CF6D2B935D96CD05865D74 /* ThreadWidget */,
+				77C7694AD725D14C44A8D3B4 /* ThreadAppTests */,
 			);
 		};
 /* End PBXProject section */
@@ -295,9 +366,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				10FC86E1A29B0FE672D59BA9 /* DashboardActivityView.swift in Sources */,
 				987051345EF5D96BEA7C15D0 /* ThreadActivityAttributes.swift in Sources */,
 				BD25AFA81EBE68B8D83F2409 /* ThreadLiveActivity.swift in Sources */,
 				C06060AF3C4350E04CC42446 /* ThreadWidgetBundle.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BDB3A01DE27CF6F1D9732CB4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85DC1864B2ACDF7EEB426C34 /* CarPlayContentTests.swift in Sources */,
+				E964D874B767C7E302BFAF74 /* DashboardActivityView.swift in Sources */,
+				E203BD34A942583D72D059F5 /* DashboardCardRenderTests.swift in Sources */,
+				BEC6C677E44B8E11C4E4C80E /* ServerUrlTests.swift in Sources */,
+				7859CAA79A0A67EA8CB0BADA /* ThreadActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -319,6 +403,8 @@
 				A5F0660F438EABD2FD1C0EA6 /* SpeechRecognizerManager.swift in Sources */,
 				D5F57AD6AACB9AB097047B1F /* ThreadActivityAttributes.swift in Sources */,
 				B87EBA58DF24D32D97192864 /* ThreadApp.swift in Sources */,
+				755635DE1B4D8E308DA45207 /* ThreadAppShortcuts.swift in Sources */,
+				01B66835A2D851C100C2E819 /* ThreadCarPlayContent.swift in Sources */,
 				A7B0FDB8B66BB5A43F2370CA /* ThreadCarPlaySceneDelegate.swift in Sources */,
 				2BF17F181249BC04F80F0655 /* ThreadNotificationManager.swift in Sources */,
 				BBC69D41E9DE36053F43376C /* ThreadSpeechAnnouncer.swift in Sources */,
@@ -329,6 +415,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		218AAB39CB64976E4A4EBD61 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0EFEAC41DAE2A55D9C9BCA23 /* ThreadApp */;
+			targetProxy = BE13034BE2DC6B042E290AAF /* PBXContainerItemProxy */;
+		};
 		844C1905D71598F13F9ED7D4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A8CF6D2B935D96CD05865D74 /* ThreadWidget */;
@@ -337,6 +428,23 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1E55D0750521A6FE2E0359E9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sumonmondal.ThreadAppTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ThreadApp.app/ThreadApp";
+			};
+			name = Debug;
+		};
 		659EF87156D42E21F29FE523 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -390,7 +498,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -407,6 +515,7 @@
 			baseConfigurationReference = 084C60DF2B29666BFDAD8341 /* Base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ios/ThreadApp/CarPlaySimulator.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -432,6 +541,7 @@
 			baseConfigurationReference = 084C60DF2B29666BFDAD8341 /* Base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = ios/ThreadApp/CarPlaySimulator.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -499,7 +609,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -524,6 +634,23 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.sumonmondal.ThreadApp.Widget;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		DCADA8F99D39EC3DE6F2728F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sumonmondal.ThreadAppTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ThreadApp.app/ThreadApp";
 			};
 			name = Release;
 		};
@@ -552,6 +679,15 @@
 			buildConfigurations = (
 				659EF87156D42E21F29FE523 /* Debug */,
 				9E89F9DA6AC47F8BBFBC6171 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		29ED1705ED6BBE26009F770B /* Build configuration list for PBXNativeTarget "ThreadAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E55D0750521A6FE2E0359E9 /* Debug */,
+				DCADA8F99D39EC3DE6F2728F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

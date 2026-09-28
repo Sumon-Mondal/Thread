@@ -1,25 +1,34 @@
-import Foundation
-import UIKit
 import CarPlay
 import Combine
+import UIKit
 
+/// Thread on a CarPlay screen: the live meeting and the approval queue. CarPlay only lists the app once Apple grants
+/// a CarPlay entitlement, and each category allows different templates, so the root falls back from tabs to a single
+/// list to a voice screen instead of failing when a layout isn't allowed.
+@MainActor
 public class ThreadCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
-    public var interfaceController: CPInterfaceController?
+    private var interfaceController: CPInterfaceController?
+    private var nowTemplate: CPListTemplate?
+    private var approvalsTemplate: CPListTemplate?
+    private var usesSingleList = false
+    private var lastSignature = ""
     private var cancellables = Set<AnyCancellable>()
-    private var liveMeetingTemplate: CPListTemplate?
-    private var actionQueueTemplate: CPListTemplate?
-    private var tabBarTemplate: CPTabBarTemplate?
+
+    private var manager: ThreadSessionManager { .shared }
 
     public func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
         didConnect interfaceController: CPInterfaceController
     ) {
         self.interfaceController = interfaceController
-        ThreadSessionManager.shared.isCarPlayConnected = true
-        ThreadSessionManager.shared.isDrivingMode = true
-
-        setupCarPlayInterface()
-        observeSessionChanges()
+        manager.isCarPlayConnected = true
+        manager.isDrivingMode = true
+        showTabs()
+        manager.objectWillChange
+            .throttle(for: .seconds(1), scheduler: RunLoop.main, latest: true)
+            .receive(on: RunLoop.main) // objectWillChange fires before the new value is stored
+            .sink { [weak self] _ in self?.refreshIfChanged() }
+            .store(in: &cancellables)
     }
 
     public func templateApplicationScene(
@@ -27,198 +36,121 @@ public class ThreadCarPlaySceneDelegate: UIResponder, CPTemplateApplicationScene
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
         self.interfaceController = nil
+        nowTemplate = nil
+        approvalsTemplate = nil
         cancellables.removeAll()
-        ThreadSessionManager.shared.isCarPlayConnected = false
+        manager.isCarPlayConnected = false
     }
 
-    private func setupCarPlayInterface() {
-        guard let interfaceController = interfaceController else { return }
+    // MARK: - Root, with fallbacks
 
-        let meeting = buildLiveMeetingTemplate()
-        let actions = buildActionQueueTemplate()
-
-        self.liveMeetingTemplate = meeting
-        self.actionQueueTemplate = actions
-
-        let tabBar = CPTabBarTemplate(templates: [meeting, actions])
-        self.tabBarTemplate = tabBar
-
-        interfaceController.setRootTemplate(tabBar, animated: true, completion: nil)
-    }
-
-    private func observeSessionChanges() {
-        let manager = ThreadSessionManager.shared
-
-        // Refresh templates when state updates
-        manager.$currentSpeaker
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshCarPlayTemplates() }
-            .store(in: &cancellables)
-
-        manager.$actions
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshCarPlayTemplates() }
-            .store(in: &cancellables)
-
-        manager.$allMoments
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.refreshCarPlayTemplates() }
-            .store(in: &cancellables)
-    }
-
-    public func refreshCarPlayTemplates() {
-        guard interfaceController != nil else { return }
-
-        let meeting = buildLiveMeetingTemplate()
-        self.liveMeetingTemplate = meeting
-
-        let actions = buildActionQueueTemplate()
-        self.actionQueueTemplate = actions
-
-        if let tabBar = tabBarTemplate {
-            tabBar.updateTemplates([meeting, actions])
+    private func showTabs() {
+        let now = CPListTemplate(title: "Now", sections: [])
+        now.tabImage = UIImage(systemName: "waveform")
+        let approvals = CPListTemplate(title: "Approvals", sections: [])
+        approvals.tabImage = UIImage(systemName: "checkmark.circle")
+        nowTemplate = now
+        approvalsTemplate = approvals
+        usesSingleList = false
+        refresh()
+        interfaceController?.setRootTemplate(CPTabBarTemplate(templates: [now, approvals]), animated: false) { [weak self] ok, _ in
+            if !ok { self?.showSingleList() }
         }
     }
 
-    // MARK: - Template Builders
-
-    private func buildLiveMeetingTemplate() -> CPListTemplate {
-        let manager = ThreadSessionManager.shared
-        var sections: [CPListSection] = []
-
-        // 1. Current Meeting & Speaker Status
-        let speakerName = manager.currentSpeaker.name
-        let topicText = manager.meetingTitle.isEmpty ? "Nova Dynamics Discovery Day" : manager.meetingTitle
-        let callItem = CPListItem(
-            text: "🎙 \(speakerName)",
-            detailText: "\(topicText) · Google Meet / Zoom",
-            image: UIImage(systemName: "waveform")
-        )
-        callItem.handler = { (_: CPSelectableListItem, completion: @escaping () -> Void) in
-            manager.speakLatestTakeaway()
-            completion()
+    private func showSingleList() {
+        let list = CPListTemplate(title: "Thread", sections: [])
+        nowTemplate = list
+        approvalsTemplate = nil
+        usesSingleList = true
+        refresh()
+        interfaceController?.setRootTemplate(list, animated: false) { [weak self] ok, _ in
+            if !ok { self?.showVoiceScreen() }
         }
+    }
 
-        let statusSection = CPListSection(items: [callItem], header: "LIVE MEETING STATUS", sectionIndexTitle: nil)
-        sections.append(statusSection)
-
-        // 2. Safe In-Car 1-Tap Quick Reactions
-        let thumbsUpItem = CPListItem(
-            text: "👍 React \"Thumbs Up\" to Call",
-            detailText: "Sends reaction live to Google Meet / Zoom",
-            image: UIImage(systemName: "hand.thumbsup.fill")
+    private func showVoiceScreen() {
+        nowTemplate = nil
+        let ready = CPVoiceControlState(
+            identifier: "ready",
+            titleVariants: ["Say “Hey Siri, ask Thread”", "Ask Thread"],
+            image: UIImage(systemName: "waveform"),
+            repeats: false
         )
-        thumbsUpItem.handler = { (_: CPSelectableListItem, completion: @escaping () -> Void) in
-            manager.sendReactionInMeeting("👍")
-            completion()
-        }
-
-        let speakTakeawayItem = CPListItem(
-            text: "🔊 Read Latest Takeaway Aloud",
-            detailText: "Speaks the current key topic through car speakers",
-            image: UIImage(systemName: "speaker.wave.2.fill")
-        )
-        speakTakeawayItem.handler = { (_: CPSelectableListItem, completion: @escaping () -> Void) in
-            manager.speakLatestTakeaway()
-            completion()
-        }
-
-        let muteItem = CPListItem(
-            text: manager.isMutedInMeeting ? "🎙 Unmute Call" : "🔇 Mute Call",
-            detailText: manager.isMutedInMeeting ? "Currently muted in meeting" : "Microphone active",
-            image: UIImage(systemName: manager.isMutedInMeeting ? "mic.slash.fill" : "mic.fill")
-        )
-        muteItem.handler = { (_: CPSelectableListItem, completion: @escaping () -> Void) in
-            manager.toggleMuteInMeeting()
-            completion()
-        }
-
-        let handItem = CPListItem(
-            text: manager.isHandRaisedInMeeting ? "Lower Hand in Call" : "✋ Raise Hand in Call",
-            detailText: manager.isHandRaisedInMeeting ? "Hand is currently raised" : "Tap to get speaker's attention",
-            image: UIImage(systemName: "hand.raised.fill")
-        )
-        handItem.handler = { (_: CPSelectableListItem, completion: @escaping () -> Void) in
-            manager.raiseHandInMeeting()
-            completion()
-        }
-
-        let controlsSection = CPListSection(
-            items: [thumbsUpItem, speakTakeawayItem, muteItem, handItem],
-            header: "SAFE DRIVING CONTROLS",
-            sectionIndexTitle: nil
-        )
-        sections.append(controlsSection)
-
-        // 3. Key Moments (Tap to Hear Aloud)
-        let visible = manager.visibleMoments.suffix(4)
-        if !visible.isEmpty {
-            let momentItems = visible.map { moment -> CPListItem in
-                let spoken = moment.takeaway
-                let item = CPListItem(
-                    text: moment.speaker,
-                    detailText: spoken,
-                    image: UIImage(systemName: "sparkles")
-                )
-                item.handler = { (_: CPSelectableListItem, completion: @escaping () -> Void) in
-                    manager.speakAloud(spoken)
-                    completion()
-                }
-                return item
+        if #available(iOS 26.4, *) {
+            let recap = CPButton(image: UIImage(systemName: "text.bubble.fill") ?? UIImage()) { [weak self] _ in
+                guard let self else { return }
+                self.speak(self.manager.voiceRecap)
             }
-            let momentsSection = CPListSection(
-                items: Array(momentItems),
-                header: "RECENT TOPICS · TAP TO LISTEN",
-                sectionIndexTitle: nil
-            )
-            sections.append(momentsSection)
+            recap.title = "Recap"
+            let approve = CPButton(image: UIImage(systemName: "checkmark.circle.fill") ?? UIImage()) { [weak self] _ in
+                self?.reviewNext()
+            }
+            approve.title = "Approve next"
+            ready.actionButtons = [recap, approve]
         }
-
-        let template = CPListTemplate(title: "Thread · Driving", sections: sections)
-        template.tabImage = UIImage(systemName: "car.fill")
-        return template
+        let voice = CPVoiceControlTemplate(voiceControlStates: [ready])
+        interfaceController?.setRootTemplate(voice, animated: false) { _, _ in }
     }
 
-    private func buildActionQueueTemplate() -> CPListTemplate {
-        let manager = ThreadSessionManager.shared
-        let pending = manager.actions.filter { $0.status == "staged" }
+    // MARK: - Content
 
-        var items: [CPListItem] = []
+    private func refreshIfChanged() {
+        guard ThreadCarPlayContent.signature(manager) != lastSignature else { return }
+        refresh()
+    }
 
-        if pending.isEmpty {
-            let empty = CPListItem(
-                text: "No Staged Actions",
-                detailText: "Thread will stage emails & forms when spoken",
-                image: UIImage(systemName: "checkmark.circle.fill")
-            )
-            items.append(empty)
+    private func refresh() {
+        lastSignature = ThreadCarPlayContent.signature(manager)
+        let handlers = ThreadCarPlayContent.Handlers(
+            readAloud: { [weak self] text in self?.speak(text) },
+            review: { [weak self] action in self?.review(action) },
+            react: { ThreadSessionManager.shared.sendReactionInMeeting("👍") },
+            toggleMute: { ThreadSessionManager.shared.toggleMuteInMeeting() },
+            toggleHand: { ThreadSessionManager.shared.raiseHandInMeeting() }
+        )
+        let now = ThreadCarPlayContent.nowSections(manager, handlers: handlers)
+        let approvals = ThreadCarPlayContent.approvalSections(manager, handlers: handlers)
+        let pending = !ThreadCarPlayContent.pendingActions(manager).isEmpty
+        if usesSingleList {
+            // One list: what needs the driver goes first.
+            nowTemplate?.updateSections(ThreadCarPlayContent.clamp(pending ? approvals + now : now))
         } else {
-            for action in pending {
-                let iconName: String
-                switch action.kind {
-                case "email", "reply": iconName = "envelope.fill"
-                case "calendar", "reminder": iconName = "calendar"
-                default: iconName = "doc.text.fill"
-                }
-
-                let item = CPListItem(
-                    text: action.label,
-                    detailText: action.detail ?? "Tap to 1-tap approve via CarPlay",
-                    image: UIImage(systemName: iconName)
-                )
-                item.handler = { [weak self] (_: CPSelectableListItem, completion: @escaping () -> Void) in
-                    manager.approveAction(id: action.id)
-                    manager.speakAloud("Approved: \(action.label)")
-                    self?.refreshCarPlayTemplates()
-                    completion()
-                }
-                items.append(item)
-            }
+            nowTemplate?.updateSections(now)
+            approvalsTemplate?.updateSections(approvals)
+            approvalsTemplate?.showsTabBadge = pending
         }
+    }
 
-        let section = CPListSection(items: items, header: "STAGED ACTIONS · 1-TAP APPROVAL", sectionIndexTitle: nil)
-        let template = CPListTemplate(title: "Action Queue", sections: [section])
-        template.tabImage = UIImage(systemName: "tray.full.fill")
-        return template
+    // MARK: - Approvals
+
+    private func review(_ action: DemoAction) {
+        guard let controller = interfaceController, controller.presentedTemplate == nil else { return }
+        let alert = ThreadCarPlayContent.confirmation(
+            for: action,
+            approve: { [weak self] in
+                ThreadSessionManager.shared.approveAction(id: action.id)
+                self?.speak(ThreadCarPlayContent.sendsSomething(action) ? "Sending. \(action.label)." : "Done. \(action.label).")
+                self?.dismissAlert()
+            },
+            cancel: { [weak self] in self?.dismissAlert() }
+        )
+        controller.presentTemplate(alert, animated: true) { _, _ in }
+    }
+
+    private func reviewNext() {
+        if let next = ThreadCarPlayContent.pendingActions(manager).first {
+            review(next)
+        } else {
+            speak("Nothing needs your approval.")
+        }
+    }
+
+    private func dismissAlert() {
+        interfaceController?.dismissTemplate(animated: true) { _, _ in }
+    }
+
+    private func speak(_ text: String) {
+        manager.speakAloud(text, force: true)
     }
 }

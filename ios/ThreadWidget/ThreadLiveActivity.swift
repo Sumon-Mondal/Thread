@@ -7,8 +7,8 @@ public struct ThreadLiveActivity: Widget {
 
     public var body: some WidgetConfiguration {
         ActivityConfiguration(for: ThreadActivityAttributes.self) { context in
-            // Lock Screen / Notification Center banner
-            LockScreenLiveActivityView(state: context.state)
+            // Lock Screen banner, or the small card on the CarPlay Dashboard and Apple Watch
+            ActivityFamilyContent(state: context.state)
                 .activityBackgroundTint(Color(red: 0.05, green: 0.07, blue: 0.10))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
@@ -93,6 +93,21 @@ public struct ThreadLiveActivity: Widget {
                     .font(.system(size: 10, weight: .black))
                     .foregroundColor(state.isPaused ? .orange : Color(red: 0.0, green: 0.85, blue: 0.98))
             }
+        }
+        .supplementalActivityFamilies([.small])
+    }
+}
+
+private struct ActivityFamilyContent: View {
+    @Environment(\.activityFamily) private var family
+    let state: ThreadActivityAttributes.ContentState
+
+    var body: some View {
+        switch family {
+        case .small:
+            DashboardActivityView(state: state)
+        default:
+            LockScreenLiveActivityView(state: state)
         }
     }
 }

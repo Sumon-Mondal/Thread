@@ -7,6 +7,8 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  // The iPhone app reaches this Mac by its Bonjour name (e.g. Sumons-MacBook-Air.local), which works on any Wi-Fi.
+  vite: { server: { allowedHosts: [".local"] } },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
